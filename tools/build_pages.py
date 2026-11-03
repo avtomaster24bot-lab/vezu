@@ -99,7 +99,7 @@ index=head('ВЕЗУ — перевезём что угодно по лучше�
 <header class="top">
   <div class="wrap">
     {LOGO('грузы до 3 тонн')}
-    <nav class="topnav"><a href="catalog.html">Водители</a><a href="tarify.html">Тарифы</a><a class="btn btn-glass btn-sm" href="new.html">Я водитель</a></nav>
+    <nav class="topnav"><button type="button" class="btn btn-glass btn-sm inst-top" data-install aria-label="Установить на телефон"><svg><use href="#i-install"/></svg><span>Установить</span></button><a href="catalog.html">Водители</a><a href="tarify.html">Тарифы</a><a class="btn btn-glass btn-sm" href="new.html">Я водитель</a></nav>
   </div>
   <nav class="wrap anchors" aria-label="Разделы страницы"><a href="#how">Как работает</a><a href="#drivers">Водителям</a><a href="#prices">Цены</a><a href="#order" class="go">Заказать</a></nav>
 </header>
@@ -112,6 +112,7 @@ index=head('ВЕЗУ — перевезём что угодно по лучше�
       <h1 class="h1">Перевезём <span class="grad-text">что угодно</span> по лучшей цене</h1>
       <div class="btns cta"><a class="btn btn-grad btn-lg" href="app.html#order"><svg><use href="#i-box"/></svg>Заказать</a><a class="btn btn-glass" href="app.html#orders">Мои заказы</a></div>
       <button type="button" class="btn btn-share btn-lg hero-share" data-share="home" data-nofab><svg><use href="#i-share"/></svg>Поделиться VEZU</button>
+      <button type="button" class="btn btn-glass btn-lg hero-install" data-install><svg><use href="#i-install"/></svg>Установить на телефон</button>
     </div>
   </section>
 
@@ -279,7 +280,7 @@ new=head('Создать визитку водителя — ВЕЗУ','Бесп
 <header class="top">
   <div class="wrap">
     {LOGO('конструктор визитки')}
-    <nav class="topnav"><a href="catalog.html">Водители</a><a class="btn btn-glass btn-sm" href="card.html?demo">Пример</a></nav>
+    <nav class="topnav"><button type="button" class="btn btn-glass btn-sm inst-top" data-install aria-label="Установить на телефон"><svg><use href="#i-install"/></svg><span>Установить</span></button><a href="catalog.html">Водители</a><a class="btn btn-glass btn-sm" href="card.html?demo">Пример</a></nav>
   </div>
 </header>
 
@@ -425,7 +426,7 @@ tar=head('Тарифы и ВЕЗУ Про — визитки водителей'
 <header class="top">
   <div class="wrap">
     {LOGO('тарифы')}
-    <nav class="topnav"><a href="catalog.html">Водители</a><a class="btn btn-glass btn-sm" href="new.html">Создать визитку</a></nav>
+    <nav class="topnav"><button type="button" class="btn btn-glass btn-sm inst-top" data-install aria-label="Установить на телефон"><svg><use href="#i-install"/></svg><span>Установить</span></button><a href="catalog.html">Водители</a><a class="btn btn-glass btn-sm" href="new.html">Создать визитку</a></nav>
   </div>
 </header>
 
@@ -508,7 +509,7 @@ cat=head('Водители ВЕЗУ — каталог грузоперевоз�
 <header class="top">
   <div class="wrap">
     {LOGO('каталог водителей')}
-    <nav class="topnav"><a href="tarify.html">Тарифы</a><a class="btn btn-glass btn-sm" href="new.html">Я водитель</a></nav>
+    <nav class="topnav"><button type="button" class="btn btn-glass btn-sm inst-top" data-install aria-label="Установить на телефон"><svg><use href="#i-install"/></svg><span>Установить</span></button><a href="tarify.html">Тарифы</a><a class="btn btn-glass btn-sm" href="new.html">Я водитель</a></nav>
   </div>
 </header>
 <main class="wrap catalog">
@@ -535,7 +536,7 @@ app=head('Заказ перевозки — ВЕЗУ','Опишите груз �
 <header class="top">
   <div class="wrap narrow">
     {LOGO('заказы')}
-    <nav class="topnav"><a href="catalog.html">Водители</a></nav>
+    <nav class="topnav"><button type="button" class="btn btn-glass btn-sm inst-top" data-install aria-label="Установить на телефон"><svg><use href="#i-install"/></svg><span>Установить</span></button><a href="catalog.html">Водители</a></nav>
   </div>
 </header>
 <main class="wrap narrow app" id="app">
@@ -585,7 +586,7 @@ priv=head('Политика конфиденциальности — ВЕЗУ','
 <header class="top">
   <div class="wrap narrow">
     {LOGO('конфиденциальность')}
-    <nav class="topnav"><a href="./">Главная</a></nav>
+    <nav class="topnav"><button type="button" class="btn btn-glass btn-sm inst-top" data-install aria-label="Установить на телефон"><svg><use href="#i-install"/></svg><span>Установить</span></button><a href="./">Главная</a></nav>
   </div>
 </header>
 '''+open('tools/privacy_body.html').read()+f'''

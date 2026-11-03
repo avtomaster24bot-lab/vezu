@@ -38,6 +38,12 @@
       wah_plain: '<b>Если WhatsApp не открылся</b> — нажмите «Открыть WhatsApp» ещё раз или скопируйте номер.',
       wah_open: 'Открыть WhatsApp', wah_copy: 'Скопировать номер', wah_web: 'Через сайт WhatsApp', wah_aria: 'WhatsApp не открылся', close: 'Закрыть',
       ios_install: 'На iPhone: нажмите «Поделиться» внизу экрана → «На экран „Домой“».',
+      inst_t: 'Установить ВЕЗУ на телефон', inst_done: 'Готово! Иконка ВЕЗУ появилась на главном экране.',
+      inst_android: '<ol class="inst"><li>Нажмите <b>⋮</b> (три точки) вверху справа в Chrome.</li><li>Выберите <b>«Установить приложение»</b> или <b>«Добавить на главный экран»</b>.</li><li>Нажмите <b>«Установить»</b> — иконка ВЕЗУ появится на главном экране.</li></ol>',
+      inst_ios: '<ol class="inst"><li>Откройте сайт в <b>Safari</b>.</li><li>Нажмите <b>«Поделиться»</b> (квадрат со стрелкой) внизу экрана.</li><li>Выберите <b>«На экран „Домой“»</b> → <b>«Добавить»</b>.</li></ol>',
+      inst_inapp: '<ol class="inst"><li>Сайт открыт внутри Telegram/WhatsApp/Instagram — отсюда установить нельзя.</li><li>Нажмите <b>⋮</b> или <b>…</b> вверху и выберите <b>«Открыть в браузере»</b> (Chrome или Safari).</li><li>В браузере снова нажмите <b>«Установить на телефон»</b>.</li></ol>',
+      inst_desktop: '<ol class="inst"><li>В Chrome или Edge нажмите значок установки в адресной строке справа или меню <b>⋮</b> → <b>«Установить ВЕЗУ»</b>.</li><li>На телефоне откройте этот адрес в Chrome (Android) или Safari (iPhone).</li></ol>',
+      inst_why: 'Иконка на главном экране открывает ВЕЗУ за секунду, как приложение, и работает даже без интернета.',
       nf_t: 'Визитка не найдена', nf_s: 'Похоже, ссылка обрезана или скопирована не полностью. Попросите водителя прислать её ещё раз.', nf_new: 'Создать свою визитку', nf_home: 'На главную',
       sub_card: 'визитка водителя', qr_aria: 'QR-код визитки', details: 'Подробнее', made_by: 'Сделано на ВЕЗУ — сделай свою визитку', wa_short: 'WhatsApp', qr: 'QR-код', save: 'В контакты', why_geo: 'Что это?'
     },
@@ -63,6 +69,12 @@
       wah_plain: '<b>WhatsApp ашылмаса</b> — «WhatsApp ашу» батырмасын қайта басыңыз немесе нөмірді көшіріңіз.',
       wah_open: 'WhatsApp ашу', wah_copy: 'Нөмірді көшіру', wah_web: 'WhatsApp сайты арқылы', wah_aria: 'WhatsApp ашылмады', close: 'Жабу',
       ios_install: 'iPhone-да: төмендегі «Бөлісу» батырмасын басыңыз → «Басты экранға».',
+      inst_t: 'ВЕЗУ-ды телефонға орнату', inst_done: 'Дайын! ВЕЗУ белгішесі басты экранға шықты.',
+      inst_android: '<ol class="inst"><li>Chrome-да жоғарғы оң жақтағы <b>⋮</b> (үш нүкте) басыңыз.</li><li><b>«Қолданбаны орнату»</b> немесе <b>«Басты экранға қосу»</b> таңдаңыз.</li><li><b>«Орнату»</b> басыңыз — ВЕЗУ белгішесі басты экранда пайда болады.</li></ol>',
+      inst_ios: '<ol class="inst"><li>Сайтты <b>Safari</b>-де ашыңыз.</li><li>Төмендегі <b>«Бөлісу»</b> батырмасын басыңыз.</li><li><b>«Басты экранға»</b> → <b>«Қосу»</b> таңдаңыз.</li></ol>',
+      inst_inapp: '<ol class="inst"><li>Сайт Telegram/WhatsApp/Instagram ішінде ашық — мұнда орнату мүмкін емес.</li><li>Жоғарыдағы <b>⋮</b> немесе <b>…</b> басып, <b>«Браузерде ашу»</b> таңдаңыз.</li><li>Браузерде қайтадан <b>«Телефонға орнату»</b> басыңыз.</li></ol>',
+      inst_desktop: '<ol class="inst"><li>Chrome не Edge-де мекенжай жолындағы орнату белгішесін немесе <b>⋮</b> → <b>«ВЕЗУ орнату»</b> басыңыз.</li><li>Телефонда бұл мекенжайды Chrome (Android) не Safari (iPhone) арқылы ашыңыз.</li></ol>',
+      inst_why: 'Басты экрандағы белгіше ВЕЗУ-ды қосымша сияқты бір секундта ашады және интернетсіз де жұмыс істейді.',
       nf_t: 'Визитка табылмады', nf_s: 'Сілтеме толық көшірілмеген сияқты. Жүргізушіден оны қайта жіберуін сұраңыз.', nf_new: 'Өз визиткаңызды жасау', nf_home: 'Басты бет',
       sub_card: 'жүргізуші визиткасы', qr_aria: 'Визитканың QR-коды', details: 'Толығырақ', made_by: 'ВЕЗУ-да жасалған — өз визиткаңды жаса', wa_short: 'WhatsApp', qr: 'QR-код', save: 'Контактілерге', why_geo: 'Бұл не?'
     }
@@ -762,21 +774,32 @@
   }
 
   // ---------- PWA ----------
+  // Кнопка «Установить на телефон» видна всегда (кроме уже установленного приложения):
+  // есть beforeinstallprompt — показываем системное окно, нет — короткую инструкцию.
   var installEvt = null, installBtns = [];
-  window.addEventListener('beforeinstallprompt', function (e) {
-    e.preventDefault(); installEvt = e;
-    installBtns.forEach(function (b) { b.hidden = false; });
-  });
   function standalone() { return (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true; }
-  function bindInstall(btn) {
-    if (!btn) return;
-    installBtns.push(btn);
-    btn.hidden = !(installEvt || (IS_IOS && !standalone() && !inAppBrowser()));
-    btn.addEventListener('click', function () {
-      if (installEvt) { installEvt.prompt(); installEvt.userChoice.then(function () { installEvt = null; btn.hidden = true; }); }
-      else toast(t('ios_install'), 6000);
-    });
+  function syncInstall() { var hide = standalone(); installBtns.forEach(function (b) { b.hidden = hide; }); }
+  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); installEvt = e; syncInstall(); });
+  window.addEventListener('appinstalled', function () { installEvt = null; toast(t('inst_done'), 4000); });
+  function installHelp() {
+    var k = inAppBrowser() ? 'inst_inapp' : IS_IOS ? 'inst_ios' : IS_ANDROID ? 'inst_android' : 'inst_desktop';
+    return sheet(t('inst_t'), t(k) + '<p class="muted" style="margin-top:12px">' + t('inst_why') + '</p>', 'sheet-info');
   }
+  function doInstall() {
+    if (installEvt) {
+      var ev = installEvt; installEvt = null;
+      ev.prompt();
+      ev.userChoice.then(function (c) { if (c && c.outcome !== 'accepted') installEvt = null; }, function () {});
+    } else installHelp();
+  }
+  function bindInstall(btn) {
+    if (!btn || btn._inst) return;
+    btn._inst = true; installBtns.push(btn);
+    btn.hidden = standalone();
+    btn.addEventListener('click', function (e) { e.preventDefault(); doInstall(); });
+  }
+  function bindAllInstall() { document.querySelectorAll('[data-install], #install').forEach(bindInstall); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindAllInstall); else bindAllInstall();
   // Свой манифест для визитки: установленная иконка открывает именно эту визитку
   function cardManifest(d, url) {
     var base = baseUrl();
