@@ -721,3 +721,4 @@ body:has(.app) .share-fab{display:none}
 ol.inst{padding-left:22px;display:grid;gap:8px;margin:4px 0 0}
 ol.inst li{color:var(--ink)}
 @media (display-mode:standalone){[data-install],#install{display:none!important}}
+@media (max-width:440px){.topnav{gap:6px}.topnav .btn-sm{padding-left:10px;padding-right:10px}.inst-top{width:36px;--h:36px}}
