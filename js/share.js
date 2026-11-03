@@ -4,7 +4,7 @@
   'use strict';
   var V = window.VEZU; if (!V) return;
   var CFG = window.VEZU_CFG || {};
-  var SITE = 'https://avtomaster24bot-lab.github.io/dogruz/';
+  var SITE = 'https://avtomaster24bot-lab.github.io/vezu/';
   var TEXT = 'Нужно что-то перевезти? 🚚 VEZU — грузоперевозки до 3 т без посредников: водители рядом сами предлагают цену, заказ за 2 касания. Сохрани себе, пригодится:';
   function standalone() { try { return matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; } catch (e) { return false; } }
   function dev() {

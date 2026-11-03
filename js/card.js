@@ -6,11 +6,11 @@
   function markLang() { langBtns.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.lang === V.lang())); }); }
   V.setLang(V.savedLang()); markLang();
 
-  // короткий адрес: card.html?u=<slug> (или /dogruz/<slug> через 404.html) — визитка из облака ВЕЗУ Про
+  // короткий адрес: card.html?u=<slug> (или /vezu/<slug> через 404.html) — визитка из облака ВЕЗУ Про
   var slug = (new URLSearchParams(location.search).get('u') || '').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 20);
   if (slug && C) {
     app.classList.add('loading');
-    var fallback = function () {   // данные, оставленные страницей-превью …/dogruz/<адрес>/ (если облако недоступно)
+    var fallback = function () {   // данные, оставленные страницей-превью …/vezu/<адрес>/ (если облако недоступно)
       try { var f = JSON.parse(sessionStorage.getItem('vezu-og-' + slug) || 'null'); return f && f.n && f.p ? V.clean(f) : null; } catch (e) { return null; }
     };
     var timer = new Promise(function (ok, no) { setTimeout(function () { no(new Error('timeout')); }, 12000); });

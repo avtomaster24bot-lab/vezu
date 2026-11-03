@@ -6,7 +6,8 @@
 // Секреты (токен бота и оба секрета) — в Supabase Vault, читаются через public.vz_tg_secrets() (только service_role).
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const SITE = Deno.env.get("VZ_SITE") ?? "https://avtomaster24bot-lab.github.io/dogruz/";
+// Платформа переехала: avtomaster24bot-lab.github.io/dogruz → /vezu/ (03.11.2026). Старый VZ_SITE, если задан, не используем.
+const SITE = "https://avtomaster24bot-lab.github.io/vezu/";
 const CARGO: Record<string, string> = { move: "Переезд / мебель", appliance: "Бытовая техника", build: "Стройматериалы", trash: "Вывоз мусора", other: "Другое" };
 const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
 

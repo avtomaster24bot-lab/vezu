@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Страницы-превью для коротких адресов ВЕЗУ Про: …/dogruz/<адрес>.html (GitHub Pages отдаёт её по …/dogruz/<адрес> без редиректа).
+"""Страницы-превью для коротких адресов ВЕЗУ Про: …/vezu/<адрес>.html (GitHub Pages отдаёт её по …/vezu/<адрес> без редиректа).
 
 GitHub Pages — статический хостинг, а WhatsApp/Telegram не выполняют JS, поэтому превью
 (имя, машина, город, фото водителя) берём из статических Open Graph тегов. Скрипт получает
@@ -12,7 +12,7 @@ import html, json, os, re, shutil, sys, urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MANIFEST = os.path.join(ROOT, 'tools', 'og-slugs.json')
-SITE = os.environ.get('VZ_SITE', 'https://avtomaster24bot-lab.github.io/dogruz/')
+SITE = os.environ.get('VZ_SITE', 'https://avtomaster24bot-lab.github.io/vezu/')
 URL = os.environ.get('VZ_SUPABASE_URL', 'https://sfgrwquitlnzlkyzashb.supabase.co').rstrip('/')
 KEY = os.environ.get('VZ_SUPABASE_KEY', 'sb_publishable_YAwB9N3mFTTnrb4SjD4-TQ_equzK7-s')
 SLUG = re.compile(r'^[a-z0-9]([a-z0-9-]{1,18})[a-z0-9]$')

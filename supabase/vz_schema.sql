@@ -570,7 +570,7 @@ begin
   update public.vz_pay_requests set status = 'dismissed', closed_at = now() where id = p_req and status = 'new';
 end $$;
 
--- Данные для статических страниц-превью …/dogruz/<адрес>/ (их собирает GitHub Actions по токену из vz_settings).
+-- Данные для статических страниц-превью …/vezu/<адрес>/ (их собирает GitHub Actions по токену из vz_settings).
 create or replace function vz_private.vz_og_list(p_token text) returns jsonb
 language plpgsql stable security definer set search_path = '' as $$
 begin

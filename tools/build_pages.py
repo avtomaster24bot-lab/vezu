@@ -2,7 +2,7 @@
 import os
 os.chdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 SP=open('tools/sprite.html').read()
-BASE='https://avtomaster24bot-lab.github.io/dogruz/'
+BASE='https://avtomaster24bot-lab.github.io/vezu/'
 def head(title,desc,url,extra='',robots=''):
     return f'''<!DOCTYPE html>
 <html lang="ru">
@@ -190,7 +190,7 @@ index=head('ВЕЗУ — перевезём что угодно по лучше�
         <span class="tag-soon">{TRIAL_DAYS} дней бесплатно</span>
         <h3>Водителям · Про</h3>
         <p class="price">{FMT(PRO_PRICE)} ₸<small>в месяц · первые {TRIAL_DAYS} дней бесплатно</small></p>
-        <ul><li><svg><use href="#i-check"/></svg><span>Новые заказы в ленте и в Telegram — <b>сразу</b>, раньше Базовой</span></li><li><svg><use href="#i-check"/></svg><span>Фото машины на визитке и в каталоге</span></li><li><svg><use href="#i-check"/></svg><span>Короткий адрес: …/dogruz/ваше-имя</span></li><li><svg><use href="#i-check"/></svg><span>Место в каталоге водителей</span></li><li><svg><use href="#i-check"/></svg><span>Статистика: просмотры, WhatsApp, звонки</span></li><li><svg><use href="#i-check"/></svg><span>Без надписи «Сделано на ВЕЗУ»</span></li></ul>
+        <ul><li><svg><use href="#i-check"/></svg><span>Новые заказы в ленте и в Telegram — <b>сразу</b>, раньше Базовой</span></li><li><svg><use href="#i-check"/></svg><span>Фото машины на визитке и в каталоге</span></li><li><svg><use href="#i-check"/></svg><span>Короткий адрес: …/vezu/ваше-имя</span></li><li><svg><use href="#i-check"/></svg><span>Место в каталоге водителей</span></li><li><svg><use href="#i-check"/></svg><span>Статистика: просмотры, WhatsApp, звонки</span></li><li><svg><use href="#i-check"/></svg><span>Без надписи «Сделано на ВЕЗУ»</span></li></ul>
         <p class="fine">Оплаченные и бессрочные подписки «Про» действуют как прежде.</p>
         <a class="btn btn-glass btn-block" href="tarify.html">Подробнее о тарифах</a>
       </section>
@@ -444,7 +444,7 @@ tar=head('Тарифы и ВЕЗУ Про — визитки водителей'
       <span class="tag-soon">{TRIAL_DAYS} дней бесплатно</span>
       <h2>Про</h2>
       <p class="price">{FMT(PRO_PRICE)} ₸<small>в месяц · первые {TRIAL_DAYS} дней бесплатно</small></p>
-      <ul>{li('Новые заказы в ленте и в Telegram — <b>сразу</b>, раньше Базовой')}{li('Фото машины на визитке и в каталоге')}{li('Короткий адрес: …/dogruz/ваше-имя')}{li('Место в каталоге водителей')}{li('Статистика: просмотры, WhatsApp, звонки')}{li('Без надписи «Сделано на ВЕЗУ»')}</ul>
+      <ul>{li('Новые заказы в ленте и в Telegram — <b>сразу</b>, раньше Базовой')}{li('Фото машины на визитке и в каталоге')}{li('Короткий адрес: …/vezu/ваше-имя')}{li('Место в каталоге водителей')}{li('Статистика: просмотры, WhatsApp, звонки')}{li('Без надписи «Сделано на ВЕЗУ»')}</ul>
       <p class="fine">Оплаченные и бессрочные подписки «Про» действуют как прежде — ничего делать не нужно.</p>
       <a class="btn btn-grad btn-block" href="new.html">Попробовать {TRIAL_DAYS} дней бесплатно</a>
       <button type="button" class="btn btn-wa btn-block" id="payPro"><svg><use href="#i-wa"/></svg>Оплатить через Kaspi</button>
@@ -620,7 +620,7 @@ adm=head('Админка — ВЕЗУ','Служебная страница','ad
 </html>
 '''
 open('admin.html','w').write(adm)
-# ---------------- короткие адреса: /dogruz/<slug> и /dogruz/d/?<slug> ----------------
+# ---------------- короткие адреса: /vezu/<slug> и /vezu/d/?<slug> ----------------
 REDIR='''<script>
 (function () {{
   var p = location.pathname, m = /^(.*\\/)([A-Za-z0-9-]{{3,20}})\\/?$/.exec(p), q = location.search.replace(/^\\?/, '');

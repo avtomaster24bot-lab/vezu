@@ -1,4 +1,4 @@
-# Страницы-превью коротких адресов (…/dogruz/<адрес>/) для WhatsApp/Telegram.
+# Страницы-превью коротких адресов (…/vezu/<адрес>/) для WhatsApp/Telegram.
 name: og-pages
 on:
   schedule:

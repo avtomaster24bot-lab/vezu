@@ -135,7 +135,7 @@
   function slugCheck(s) { s = String(s || '').toLowerCase().trim(); if (!SLUG_RE.test(s) || s.indexOf('--') >= 0) return 'bad'; if (RESERVED.indexOf(s) >= 0) return 'reserved'; return 'ok'; }
   var TR = { а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'e', ж: 'zh', з: 'z', и: 'i', й: 'y', к: 'k', л: 'l', м: 'm', н: 'n', о: 'o', п: 'p', р: 'r', с: 's', т: 't', у: 'u', ф: 'f', х: 'kh', ц: 'ts', ч: 'ch', ш: 'sh', щ: 'sch', ъ: '', ы: 'y', ь: '', э: 'e', ю: 'yu', я: 'ya', ә: 'a', ғ: 'g', қ: 'k', ң: 'n', ө: 'o', ұ: 'u', ү: 'u', һ: 'h', і: 'i' };
   function translit(s) { return String(s || '').toLowerCase().split('').map(function (c) { return TR[c] !== undefined ? TR[c] : c; }).join('').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 20).replace(/-+$/, ''); }
-  function siteBase() { var p = location.pathname, i = p.indexOf('/dogruz/'); return location.origin + (i >= 0 ? p.slice(0, i + 8) : p.replace(/[^/]*$/, '')); }
+  function siteBase() { var p = location.pathname, i = p.indexOf('/vezu/'); return location.origin + (i >= 0 ? p.slice(0, i + 6) : p.replace(/[^/]*$/, '')); }
   function shortUrl(slug) { return siteBase() + slug; }
 
   window.VZC = { enabled: enabled, ready: ready, rpc: rpc, key: key, newKey: newKey, setKey: setKey, forget: forget,
