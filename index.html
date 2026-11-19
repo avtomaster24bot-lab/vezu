@@ -25,7 +25,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="VEZU">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="css/style.css?v=e6952d75">
+<link rel="stylesheet" href="css/style.css?v=98d1e465">
 <link rel="preload" as="image" href="img/hero-van-720.webp" imagesrcset="img/hero-van-720.webp 720w, img/hero-van-1280.webp 1280w" imagesizes="(min-width:880px) 1120px, 100vw">
 </head>
 <body>
@@ -121,6 +121,15 @@
       <button type="button" class="qchip" data-cargo="trash" aria-pressed="false">Вывоз мусора</button>
       <button type="button" class="qchip" data-cargo="other" aria-pressed="false">Другое</button>
     </div></div>
+    <div class="fld city-f" data-city-pick data-city-default="Караганда" data-city-remember="order">
+      <span class="cargo-h">Город заказа *</span>
+      <p class="fine">Заказ увидят водители этого города. Для межгорода укажите город, откуда везёте.</p>
+      <div class="qchips city-chips" role="group" aria-label="Город"></div>
+      <input type="hidden" name="city" value="">
+      <label class="fld city-other" hidden><span>Название города</span><input class="inp" name="city_other" maxlength="40" placeholder="Например: Темиртау"></label>
+      <button type="button" class="lnk city-gps" data-city-gps>Определить город по геопозиции</button>
+      <p class="fine city-gps-msg" data-city-gps-msg hidden></p>
+    </div>
     <label class="fld"><span class="sr">Что везём</span><input class="inp" name="what" placeholder="Что везём? Например: диван и 10 коробок" data-i18n-ph="what" maxlength="120"></label>
     <div class="route">
       <i class="dot d1"></i><i class="dot d2"></i>
@@ -210,8 +219,8 @@
   <a href="app.html#feed" class="drv"><svg><use href="#i-feed"/></svg><span>Лента</span><em hidden>0</em></a>
 </nav>
 <script>try{if(localStorage.getItem('vezu-key'))document.body.classList.add('is-driver')}catch(e){}</script>
-<script src="js/common.js?v=276b75b7"></script>
-<script src="js/calc.js?v=db9410cd"></script>
+<script src="js/common.js?v=ae8a95ab"></script>
+<script src="js/calc.js?v=d481bd68"></script>
 <script src="js/config.js?v=566bab7b"></script>
 <script src="js/share.js?v=f44bf895"></script>
 <script>

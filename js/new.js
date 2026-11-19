@@ -11,7 +11,9 @@
   if (init) { init = V.clean(init); delete init.x; state = Object.assign(state, init); if (!init.s) state.s = ''; if (!init.w) state.w = ''; }
 
   var TEXT = ['n', 't', 'c', 'i', 'm', 'z', 'tg'];
-  TEXT.forEach(function (k) { if (state[k]) f.elements[k].value = state[k]; });
+  TEXT.forEach(function (k) { if (state[k] && f.elements[k]) f.elements[k].value = state[k]; });
+  if (V.bindCityPickers) V.bindCityPickers(f);
+  if (state.t && f.querySelector('[data-city-pick]') && f.querySelector('[data-city-pick]')._cityPick) f.querySelector('[data-city-pick]')._cityPick.set(state.t);
   if (state.tg) f.elements.tg.value = '@' + state.tg;
   if (state.p) f.elements.p.value = V.fmtPhone(state.p);
   if (state.pr) f.elements.pr.value = V.fmtNum(state.pr);
@@ -99,12 +101,13 @@
 
   // ---- шаги ----
   var step = 1;
-  function valid1() { return !!(f.elements.n.value.trim() && V.normPhone(phone.value)); }
+  function valid1() { return !!(f.elements.n.value.trim() && V.normPhone(phone.value) && V.normCity(f.elements.t.value || (f.elements.t_other && f.elements.t_other.value) || '')); }
   function go(n) {
     if (n > 1 && !valid1()) {
       n = 1; document.getElementById('err1').hidden = false;
-      (f.elements.n.value.trim() ? phone : f.elements.n).classList.add('bad');
-      (f.elements.n.value.trim() ? phone : f.elements.n).focus();
+      var miss = !f.elements.n.value.trim() ? f.elements.n : !V.normPhone(phone.value) ? phone : (f.querySelector('[data-city-pick]') || f.elements.t);
+      if (miss && miss.classList) miss.classList.add('bad');
+      if (miss && miss.focus) miss.focus();
     }
     step = n; build.dataset.step = n;
     document.querySelectorAll('.progress [data-go]').forEach(function (b) {
@@ -129,7 +132,7 @@
     state.rt = rt.join('').length ? rt.join(',') : '';
     state.hs = hs.value; state.he = he.value;
     d = V.clean(state);
-    if (valid1()) { document.getElementById('err1').hidden = true; f.elements.n.classList.remove('bad'); phone.classList.remove('bad'); }
+    if (valid1()) { document.getElementById('err1').hidden = true; f.elements.n.classList.remove('bad'); phone.classList.remove('bad'); var cp = f.querySelector('[data-city-pick]'); if (cp) cp.classList.remove('bad'); }
     document.getElementById('cnt').textContent = (state.m || '').length + '/80';
     on(cap, function (b) { return b.dataset.v === state.w; });
     on(svc, function (b) { return (state.s || '').indexOf(b.dataset.i) >= 0; });

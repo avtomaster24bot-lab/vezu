@@ -37,6 +37,7 @@ const ok = (b: unknown = { ok: true }) => new Response(JSON.stringify(b), { head
 function orderText(j: Record<string, unknown>) {
   const lines = [j.scope === "picked" ? "🚚 <b>Заказ лично вам</b>" : "🚚 <b>Новый заказ в ленте ВЕЗУ</b>"];
   if (j.cargo && CARGO[j.cargo as string]) lines.push("📦 " + CARGO[j.cargo as string]);
+  if (j.city) lines.push("🏙 " + esc(String(j.city)));
   const route = [j.from, j.to].filter(Boolean).map((x) => esc(String(x))).join(" → ");
   if (route) lines.push("📍 " + route);
   let when = String(j.when ?? "");
@@ -48,11 +49,25 @@ function orderText(j: Record<string, unknown>) {
   return lines.join("\n");
 }
 
+function chosenText(j: Record<string, unknown>) {
+  const lines = ["✅ <b>Вас выбрали на заказ</b>"];
+  if (j.what) lines.push("📦 " + esc(String(j.what)));
+  else if (j.cargo && CARGO[j.cargo as string]) lines.push("📦 " + CARGO[j.cargo as string]);
+  if (j.city) lines.push("🏙 " + esc(String(j.city)));
+  const route = [j.from, j.to].filter(Boolean).map((x) => esc(String(x))).join(" → ");
+  if (route) lines.push("📍 " + route);
+  if (typeof j.price === "number") lines.push("💰 Цена: " + Number(j.price).toLocaleString("ru-RU") + " ₸");
+  lines.push("", "Телефон клиента — в ленте ВЕЗУ, в карточке этого заказа.");
+  return lines.join("\n");
+}
+
 async function notify(order: string, tier: string) {
-  const { data, error } = await db.rpc("vz_tg_job", { p_order: order, p_tier: tier });
+  const rpc = tier === "chosen" ? "vz_tg_chosen" : "vz_tg_job";
+  const args = tier === "chosen" ? { p_order: order } : { p_order: order, p_tier: tier };
+  const { data, error } = await db.rpc(rpc, args);
   if (error || !data) return { sent: 0 };
   const j = data as Record<string, unknown>, chats = (j.chats as number[]) ?? [];
-  const text = orderText(j);
+  const text = tier === "chosen" ? chosenText(j) : orderText(j);
   let sent = 0;
   for (const chat of chats) {
     const r = await tg("sendMessage", { chat_id: chat, text, parse_mode: "HTML", disable_web_page_preview: true,
@@ -89,7 +104,7 @@ Deno.serve(async (req) => {
   if (!body) return new Response("bad", { status: 400 });
   if (hook && eq(hook, s.vz_tg_webhook_secret ?? "")) { try { await onUpdate(body); } catch (_) { /* Telegram не должен повторять */ } return ok(); }
   if (nt && eq(nt, s.vz_tg_notify_secret ?? "")) {
-    if (!/^[0-9a-f-]{36}$/.test(String(body.order ?? "")) || !["pro", "all"].includes(body.tier)) return new Response("bad", { status: 400 });
+    if (!/^[0-9a-f-]{36}$/.test(String(body.order ?? "")) || !["pro", "all", "chosen"].includes(body.tier)) return new Response("bad", { status: 400 });
     return ok(await notify(body.order, body.tier));
   }
   return new Response("forbidden", { status: 403 });

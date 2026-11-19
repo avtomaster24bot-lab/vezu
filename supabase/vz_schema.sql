@@ -21,6 +21,59 @@ language sql immutable set search_path = '' as $$
   select case when coalesce(p_key, '') ~ '^[A-Za-z0-9_-]{32,64}$' then encode(sha256(convert_to(p_key, 'UTF8')), 'hex') end;
 $$;
 
+-- Нормализация названия города (список крупных городов РК + синонимы; иначе — аккуратно обрезанный свободный ввод).
+create or replace function vz_private.vz_norm_city(p text) returns text
+language plpgsql immutable set search_path = '' as $$
+declare
+  s text := btrim(regexp_replace(coalesce(p, ''), '\s+', ' ', 'g'));
+  k text;
+  canon text;
+begin
+  if s = '' or char_length(s) > 80 then return ''; end if;
+  k := lower(replace(s, 'ё', 'е'));
+  select c into canon from (values
+    ('караганда','Караганда'),('karaganda','Караганда'),('qaraghandy','Караганда'),('qaragandy','Караганда'),('караганды','Караганда'),
+    ('алматы','Алматы'),('almaty','Алматы'),('алмата','Алматы'),
+    ('астана','Астана'),('astana','Астана'),('нур-султан','Астана'),('нурсултан','Астана'),('nur-sultan','Астана'),('nursultan','Астана'),
+    ('шымкент','Шымкент'),('shymkent','Шымкент'),('чимкент','Шымкент'),
+    ('актобе','Актобе'),('aktobe','Актобе'),('актюбинск','Актобе'),
+    ('тараз','Тараз'),('taraz','Тараз'),('джамбул','Тараз'),('жамбул','Тараз'),('жамбыл','Тараз'),
+    ('павлодар','Павлодар'),('pavlodar','Павлодар'),
+    ('усть-каменогорск','Усть-Каменогорск'),('усть каменогорск','Усть-Каменогорск'),('ust-kamenogorsk','Усть-Каменогорск'),('oskemen','Усть-Каменогорск'),('оскемен','Усть-Каменогорск'),('өскемен','Усть-Каменогорск'),
+    ('семей','Семей'),('semey','Семей'),('семипалатинск','Семей'),
+    ('атырау','Атырау'),('atyrau','Атырау'),('гурьев','Атырау'),
+    ('костанай','Костанай'),('kostanay','Костанай'),('qostanay','Костанай'),('кустанай','Костанай'),
+    ('кызылорда','Кызылорда'),('kyzylorda','Кызылорда'),('qyzylorda','Кызылорда'),('кзыл-орда','Кызылорда'),
+    ('уральск','Уральск'),('oral','Уральск'),('орал','Уральск'),
+    ('петропавловск','Петропавловск'),('petropavlovsk','Петропавловск'),('petropavl','Петропавловск'),
+    ('актау','Актау'),('aktau','Актау'),('шевченко','Актау'),
+    ('туркестан','Туркестан'),('turkestan','Туркестан'),('turkistan','Туркестан'),
+    ('кокшетау','Кокшетау'),('kokshetau','Кокшетау'),('кокчетав','Кокшетау'),
+    ('талдыкорган','Талдыкорган'),('taldykorgan','Талдыкорган'),('талды-курган','Талдыкорган'),
+    ('экибастуз','Экибастуз'),('ekibastuz','Экибастуз'),
+    ('темиртау','Темиртау'),('temirtau','Темиртау'),
+    ('сарань','Сарань'),('saran','Сарань'),
+    ('балхаш','Балхаш'),('balkhash','Балхаш'),
+    ('жезказган','Жезказган'),('zhezkazgan','Жезказган'),('джезказган','Жезказган'),
+    ('риддер','Риддер'),('ridder','Риддер'),
+    ('конаев','Конаев'),('qonaev','Конаев'),('капшагай','Конаев'),('капчагай','Конаев'),
+    ('каскелен','Каскелен'),('kaskelen','Каскелен'),
+    ('степногорск','Степногорск'),
+    ('жанаозен','Жанаозен'),
+    ('талгар','Талгар')
+  ) v(a, c) where v.a = k;
+  if canon is not null then return canon; end if;
+  s := btrim(regexp_replace(s, '[^A-Za-zА-Яа-яЁёІіҢңҒғҮүҰұҚқӨөҺһ \-]', '', 'g'));
+  if char_length(s) < 2 then return ''; end if;
+  return left(s, 60);
+end $$;
+
+create or replace function vz_private.vz_city_eq(a text, b text) returns boolean
+language sql immutable set search_path = '' as $$
+  select vz_private.vz_norm_city(a) <> '' and lower(vz_private.vz_norm_city(a)) = lower(vz_private.vz_norm_city(b));
+$$;
+
+
 -- ---------- таблицы ----------
 create table if not exists public.vz_cards (
   id           uuid primary key default gen_random_uuid(),
@@ -336,7 +389,7 @@ begin
       raise exception 'Визитка с этим номером уже есть в облаке. Откройте её ключом доступа или напишите в поддержку ВЕЗУ';
     end if;
     insert into public.vz_cards (key_hash, phone, data, city, veh, is_published, pro_until, ref_code)
-    values (h, d->>'p', d, left(trim(coalesce(d->>'t', '')), 60), coalesce(p_veh, ''), coalesce(p_published, true), now() + interval '7 days',
+    values (h, d->>'p', d, vz_private.vz_norm_city(d->>'t'), coalesce(p_veh, ''), coalesce(p_published, true), now() + interval '7 days',
             substr(md5(random()::text || clock_timestamp()::text || h), 1, 8))
     returning * into c;
     -- приглашение: награда пригласившему, если номер раньше не участвовал
@@ -352,7 +405,7 @@ begin
     if exists (select 1 from public.vz_cards where phone = d->>'p' and id <> c.id) then
       raise exception 'Этот номер уже привязан к другой визитке в облаке';
     end if;
-    update public.vz_cards set data = d, phone = d->>'p', city = left(trim(coalesce(d->>'t', '')), 60), veh = coalesce(p_veh, ''),
+    update public.vz_cards set data = d, phone = d->>'p', city = vz_private.vz_norm_city(d->>'t'), veh = coalesce(p_veh, ''),
       is_published = coalesce(p_published, is_published), updated_at = now()
     where id = c.id returning * into c;
   end if;
@@ -771,7 +824,7 @@ create table if not exists public.vz_orders (
   name       text not null default '' check (char_length(name) <= 30),
   phone      text not null check (phone ~ '^7[0-9]{10}$'),
   scope      text not null default 'all' check (scope in ('all', 'picked')),
-  status     text not null default 'open' check (status in ('open', 'taken', 'cancelled', 'hidden')),
+  status     text not null default 'open' check (status in ('open', 'taken', 'done', 'cancelled', 'hidden')),
   taken_card uuid references public.vz_cards(id) on delete set null,
   review_issued boolean not null default false,
   ip_hash    text not null default '',
@@ -781,6 +834,13 @@ create table if not exists public.vz_orders (
 create index if not exists vz_orders_dev on public.vz_orders (dev_hash, created_at desc);
 -- v11: тип груза (необязательный)
 alter table public.vz_orders add column if not exists cargo text not null default '' check (cargo in ('', 'move', 'appliance', 'build', 'trash', 'other'));
+-- v16: город заказа (нормализованный). Пустой — у старых заказов: в общую ленту не попадают.
+alter table public.vz_orders add column if not exists city text not null default '' check (char_length(city) <= 60);
+-- v16: подтверждённая цена и статус «выполнен» (после «в работе» = taken)
+alter table public.vz_orders add column if not exists agreed_price integer check (agreed_price is null or agreed_price > 0);
+alter table public.vz_orders drop constraint if exists vz_orders_status_check;
+alter table public.vz_orders add constraint vz_orders_status_check check (status in ('open', 'taken', 'done', 'cancelled', 'hidden'));
+
 create index if not exists vz_orders_open on public.vz_orders (status, expires_at) where status = 'open';
 create index if not exists vz_orders_taken on public.vz_orders (taken_card);
 create table if not exists public.vz_order_targets (
@@ -814,7 +874,7 @@ $$;
 create or replace function vz_private.vz_order_pub(o public.vz_orders, show_phone boolean) returns jsonb
 language sql stable set search_path = '' as $$
   select jsonb_build_object('id', o.id, 'what', o.what, 'from', o.from_addr, 'to', o.to_addr, 'when', o.when_text, 'when_at', o.when_at,
-    'calc', o.calc, 'cargo', o.cargo, 'note', o.note, 'name', case when show_phone then o.name end, 'scope', o.scope, 'status', o.status, 'at', o.created_at, 'expires_at', o.expires_at,
+    'calc', o.calc, 'cargo', o.cargo, 'city', o.city, 'note', o.note, 'agreed', o.agreed_price, 'name', case when show_phone then o.name end, 'scope', o.scope, 'status', o.status, 'at', o.created_at, 'expires_at', o.expires_at,
     'phone', case when show_phone then o.phone end);
 $$;
 
@@ -823,7 +883,7 @@ drop function if exists vz_private.vz_order_create(text, jsonb, text[]);
 create or replace function vz_private.vz_order_create(p_dev text, p_order jsonb, p_slugs text[] default null, p_consent text default null) returns uuid
 language plpgsql security definer set search_path = '' as $$
 declare ok boolean := vz_private.vz_consent_check('order', p_consent); h text := vz_private.vz_hash(p_dev); ip text := vz_private.vz_ip(); o jsonb := coalesce(p_order, '{}'); oid uuid;
-  ph text := regexp_replace(coalesce(o->>'phone', ''), '[^0-9]', '', 'g'); wat timestamptz; c jsonb := '{}'; n int;
+  ph text := regexp_replace(coalesce(o->>'phone', ''), '[^0-9]', '', 'g'); wat timestamptz; c jsonb := '{}'; n int; cty text;
 begin
   if h is null then raise exception 'Не удалось отправить заказ'; end if;
   if exists (select 1 from public.vz_devices where dev_hash = h and blocked) then raise exception 'Заказы с этого устройства отключены. Напишите в поддержку ВЕЗУ'; end if;
@@ -831,9 +891,11 @@ begin
   if length(ph) = 10 then ph := '7' || ph; end if;
   if ph !~ '^7[0-9]{10}$' then raise exception 'Укажите телефон для связи'; end if;
   if btrim(coalesce(o->>'what', '') || coalesce(o->>'from', '') || coalesce(o->>'to', '')) = '' and coalesce(o->>'cargo', '') = '' then raise exception 'Напишите, что везём и откуда'; end if;
-  if vz_private.vz_review_flag(concat_ws(' ', o->>'what', o->>'from', o->>'to', o->>'note', o->>'name', o->>'when')) in ('ссылка', 'мат') then
+  if vz_private.vz_review_flag(concat_ws(' ', o->>'what', o->>'from', o->>'to', o->>'note', o->>'name', o->>'when', o->>'city')) in ('ссылка', 'мат') then
     raise exception 'Уберите из заказа ссылки и нецензурные слова';
   end if;
+  cty := vz_private.vz_norm_city(o->>'city');
+  if cty = '' then raise exception 'Укажите город заказа'; end if;
   if (select count(*) from public.vz_orders where (dev_hash = h or (ip <> '' and ip_hash = ip)) and created_at > now() - interval '1 hour') >= 5 then
     raise exception 'Не больше 5 заказов в час. Попробуйте позже';
   end if;
@@ -847,13 +909,13 @@ begin
     c := c - 'a' - 'b' || coalesce(case when c ? 'a' then jsonb_build_object('a', jsonb_build_object('lat', c->'a'->'lat', 'lon', c->'a'->'lon')) end, '{}')
                     || coalesce(case when c ? 'b' then jsonb_build_object('b', jsonb_build_object('lat', c->'b'->'lat', 'lon', c->'b'->'lon')) end, '{}');
   end if;
-  insert into public.vz_orders (dev_hash, what, from_addr, to_addr, when_text, when_at, calc, note, name, phone, scope, ip_hash, expires_at, cargo)
+  insert into public.vz_orders (dev_hash, what, from_addr, to_addr, when_text, when_at, calc, note, name, phone, scope, ip_hash, expires_at, cargo, city)
   values (h, left(btrim(coalesce(o->>'what', '')), 120), left(btrim(coalesce(o->>'from', '')), 120), left(btrim(coalesce(o->>'to', '')), 120),
     left(btrim(coalesce(o->>'when', '')), 40), wat, c, left(btrim(coalesce(o->>'note', '')), 300),
     left(btrim(split_part(regexp_replace(coalesce(o->>'name', ''), '[^[:alpha:] -]', '', 'g'), ' ', 1)), 30), ph,
     case when coalesce(array_length(p_slugs, 1), 0) > 0 then 'picked' else 'all' end, ip,
     case when wat is not null and wat > now() + interval '22 hours' then wat + interval '2 hours' else now() + interval '24 hours' end,
-    case when o->>'cargo' in ('move', 'appliance', 'build', 'trash', 'other') then o->>'cargo' else '' end)
+    case when o->>'cargo' in ('move', 'appliance', 'build', 'trash', 'other') then o->>'cargo' else '' end, cty)
   returning id into oid;
   if coalesce(array_length(p_slugs, 1), 0) > 0 then
     insert into public.vz_order_targets (order_id, card_id)
@@ -882,16 +944,41 @@ language sql stable security definer set search_path = '' as $$
     order by o.created_at desc limit 50) s;
 $$;
 
-create or replace function vz_private.vz_order_pick(p_dev text, p_id uuid, p_slug text) returns boolean
+create or replace function vz_private.vz_order_pick(p_dev text, p_id uuid, p_slug text, p_price integer default null) returns boolean
+language plpgsql security definer set search_path = '' as $$
+declare cid uuid; offer int; price int;
+begin
+  -- подтвердить заказ может только клиент (токен устройства); водитель должен уже откликнуться; повторно выбрать нельзя
+  select r.card_id, r.price into cid, offer from public.vz_order_responses r join public.vz_cards c on c.id = r.card_id
+  where r.order_id = p_id and c.slug = lower(btrim(coalesce(p_slug, '')));
+  if cid is null then raise exception 'Этот водитель не откликался'; end if;
+  price := nullif(greatest(coalesce(p_price, offer, 0), 0), 0);
+  update public.vz_orders set status = 'taken', taken_card = cid, agreed_price = price
+  where id = p_id and dev_hash = vz_private.vz_hash(p_dev) and status = 'open' and taken_card is null;
+  if not found then raise exception 'Заказ уже закрыт или водитель уже выбран'; end if;
+  begin perform vz_private.vz_tg_call(p_id, 'chosen'); exception when others then null; end;
+  return true;
+end $$;
+
+-- Клиент или выбранный водитель помечает заказ выполненным («Выполнен»).
+create or replace function vz_private.vz_order_finish(p_dev text, p_id uuid) returns boolean
+language plpgsql security definer set search_path = '' as $$
+begin
+  update public.vz_orders set status = 'done'
+  where id = p_id and dev_hash = vz_private.vz_hash(p_dev) and status = 'taken';
+  if not found then raise exception 'Заказ нельзя отметить выполненным'; end if;
+  return true;
+end $$;
+
+create or replace function vz_private.vz_driver_finish(p_key text, p_id uuid) returns boolean
 language plpgsql security definer set search_path = '' as $$
 declare cid uuid;
 begin
-  select r.card_id into cid from public.vz_order_responses r join public.vz_cards c on c.id = r.card_id
-  where r.order_id = p_id and c.slug = lower(btrim(coalesce(p_slug, '')));
-  if cid is null then raise exception 'Этот водитель не откликался'; end if;
-  update public.vz_orders set status = 'taken', taken_card = cid
-  where id = p_id and dev_hash = vz_private.vz_hash(p_dev) and status = 'open';
-  if not found then raise exception 'Заказ уже закрыт'; end if;
+  select id into cid from public.vz_cards where key_hash = vz_private.vz_hash(p_key) and not is_blocked;
+  if cid is null then raise exception 'Сначала сохраните визитку в облаке'; end if;
+  update public.vz_orders set status = 'done'
+  where id = p_id and taken_card = cid and status = 'taken';
+  if not found then raise exception 'Заказ нельзя отметить выполненным'; end if;
   return true;
 end $$;
 
@@ -910,7 +997,7 @@ declare o public.vz_orders; t text := replace(gen_random_uuid()::text, '-', '');
 begin
   if not vz_private.vz_reviews_on() then raise exception 'Отзывы временно отключены'; end if;
   select * into o from public.vz_orders where id = p_id and dev_hash = vz_private.vz_hash(p_dev) for update;
-  if o.id is null or o.status <> 'taken' or o.taken_card is null then raise exception 'Отзыв — после выбора водителя'; end if;
+  if o.id is null or o.status not in ('taken', 'done') or o.taken_card is null then raise exception 'Отзыв — после выбора водителя'; end if;
   if o.review_issued then raise exception 'Отзыв по этому заказу уже оставлен'; end if;
   insert into public.vz_review_invites (token_hash, card_id) values (vz_private.vz_hash(t || t), o.taken_card);
   update public.vz_orders set review_issued = true where id = o.id;
@@ -925,19 +1012,25 @@ begin
   select * into c from public.vz_cards where key_hash = vz_private.vz_hash(p_key);
   if c.id is null then raise exception 'Сначала сохраните визитку в облаке'; end if;
   if c.is_blocked then return '[]'::jsonb; end if;
-  return (select coalesce(jsonb_agg(j order by mine desc, personal desc, at desc), '[]'::jsonb) from (
+  return (select coalesce(jsonb_agg(j order by mine desc, personal desc, is_open desc, at desc), '[]'::jsonb) from (
     select o.created_at at, coalesce(o.taken_card = c.id, false) mine, (t.card_id is not null) personal,
+      (o.status = 'open') is_open,
       vz_private.vz_order_pub(o, coalesce(o.taken_card = c.id, false)) || jsonb_build_object('personal', t.card_id is not null,
         'mine', coalesce(o.taken_card = c.id, false), 'my', case when r.card_id is not null then jsonb_build_object('price', r.price, 'comment', r.comment) end,
-        'responses', (select count(*) from public.vz_order_responses x where x.order_id = o.id)) j
+        'responses', (select count(*) from public.vz_order_responses x where x.order_id = o.id),
+        'taken_n', case when o.status in ('taken', 'done') then (select left(split_part(coalesce(c2.data->>'n', ''), ' ', 1), 20) from public.vz_cards c2 where c2.id = o.taken_card) end) j
     from public.vz_orders o
     left join public.vz_order_targets t on t.order_id = o.id and t.card_id = c.id
     left join public.vz_order_responses r on r.order_id = o.id and r.card_id = c.id
     where o.dev_hash not in (select d.dev_hash from public.vz_devices d where d.blocked)
       and ((o.status = 'open' and o.expires_at > now() and (o.scope = 'all' or t.card_id is not null)
             -- приоритет Про: новые общие заказы Про видит сразу, Базовая — через 10 минут (личные заказы — сразу всем)
-            and (t.card_id is not null or coalesce(c.pro_until > now(), false) or o.created_at <= now() - interval '10 minutes'))
-        or (o.status = 'taken' and o.taken_card = c.id and o.created_at > now() - interval '3 days'))
+            and (t.card_id is not null or coalesce(c.pro_until > now(), false) or o.created_at <= now() - interval '10 minutes')
+            -- общие заказы — только при совпадении города (межгород: город отправления). Без города у водителя общие скрыты.
+            and (t.card_id is not null or vz_private.vz_city_eq(c.city, o.city)))
+        -- «В работе» / «Выполнен» остаются в ленте города как подтверждение, что заказы берутся (без телефона клиента)
+        or (o.status in ('taken', 'done') and o.created_at > now() - interval '7 days'
+            and (o.taken_card = c.id or vz_private.vz_city_eq(c.city, o.city))))
     order by o.created_at desc limit 100) s);
 end $$;
 
@@ -950,8 +1043,12 @@ begin
   select * into o from public.vz_orders where id = p_id;
   if o.id is null or o.status <> 'open' or o.expires_at < now() then raise exception 'Заказ уже закрыт'; end if;
   if o.scope = 'picked' and not exists (select 1 from public.vz_order_targets where order_id = o.id and card_id = c.id) then raise exception 'Заказ адресован другим водителям'; end if;
-  if o.scope = 'all' and not coalesce(c.pro_until > now(), false) and o.created_at > now() - interval '10 minutes' then
-    raise exception 'Этот заказ появится в вашей ленте через несколько минут (с «Про» — сразу)'; end if;
+  if o.scope = 'all' then
+    if vz_private.vz_norm_city(c.city) = '' then raise exception 'Укажите свой город в кабинете визитки — в ленте будут заказы вашего города'; end if;
+    if not vz_private.vz_city_eq(c.city, o.city) then raise exception 'Этот заказ из другого города'; end if;
+    if not coalesce(c.pro_until > now(), false) and o.created_at > now() - interval '10 minutes' then
+      raise exception 'Этот заказ появится в вашей ленте через несколько минут (с «Про» — сразу)'; end if;
+  end if;
   if vz_private.vz_review_flag(cm) in ('ссылка', 'мат') then raise exception 'В комментарии нельзя: ссылки, мат'; end if;
   insert into public.vz_order_responses (order_id, card_id, price, comment) values (o.id, c.id, nullif(greatest(p_price, 0), 0), cm)
   on conflict (order_id, card_id) do update set price = excluded.price, comment = excluded.comment, created_at = now();
@@ -1025,8 +1122,14 @@ create or replace function public.vz_order_create(p_dev text, p_order jsonb, p_s
 language sql security invoker set search_path = '' as $$ select vz_private.vz_order_create(p_dev, p_order, p_slugs, p_consent) $$;
 create or replace function public.vz_my_orders(p_dev text) returns jsonb
 language sql security invoker set search_path = '' as $$ select vz_private.vz_my_orders(p_dev) $$;
-create or replace function public.vz_order_pick(p_dev text, p_id uuid, p_slug text) returns boolean
-language sql security invoker set search_path = '' as $$ select vz_private.vz_order_pick(p_dev, p_id, p_slug) $$;
+drop function if exists public.vz_order_pick(text, uuid, text);
+drop function if exists vz_private.vz_order_pick(text, uuid, text);
+create or replace function public.vz_order_pick(p_dev text, p_id uuid, p_slug text, p_price integer default null) returns boolean
+language sql security invoker set search_path = '' as $$ select vz_private.vz_order_pick(p_dev, p_id, p_slug, p_price) $$;
+create or replace function public.vz_order_finish(p_dev text, p_id uuid) returns boolean
+language sql security invoker set search_path = '' as $$ select vz_private.vz_order_finish(p_dev, p_id) $$;
+create or replace function public.vz_driver_finish(p_key text, p_id uuid) returns boolean
+language sql security invoker set search_path = '' as $$ select vz_private.vz_driver_finish(p_key, p_id) $$;
 create or replace function public.vz_order_cancel(p_dev text, p_id uuid) returns boolean
 language sql security invoker set search_path = '' as $$ select vz_private.vz_order_cancel(p_dev, p_id) $$;
 create or replace function public.vz_order_review(p_dev text, p_id uuid) returns jsonb
@@ -1102,7 +1205,8 @@ grant execute on function public.vz_card(text), vz_private.vz_card(text) to anon
 grant execute on function public.vz_catalog(text, text, int, int, int, boolean), vz_private.vz_catalog(text, text, int, int, int, boolean) to anon, authenticated;
 grant execute on function public.vz_order_create(text, jsonb, text[], text), vz_private.vz_order_create(text, jsonb, text[], text) to anon, authenticated;
 grant execute on function public.vz_my_orders(text), vz_private.vz_my_orders(text) to anon, authenticated;
-grant execute on function public.vz_order_pick(text, uuid, text), vz_private.vz_order_pick(text, uuid, text) to anon, authenticated;
+grant execute on function public.vz_order_pick(text, uuid, text, integer), vz_private.vz_order_pick(text, uuid, text, integer) to anon, authenticated;
+grant execute on function public.vz_order_finish(text, uuid), vz_private.vz_order_finish(text, uuid), public.vz_driver_finish(text, uuid), vz_private.vz_driver_finish(text, uuid) to anon, authenticated;
 grant execute on function public.vz_order_cancel(text, uuid), vz_private.vz_order_cancel(text, uuid) to anon, authenticated;
 grant execute on function public.vz_order_review(text, uuid), vz_private.vz_order_review(text, uuid) to anon, authenticated;
 grant execute on function public.vz_feed(text), vz_private.vz_feed(text) to anon, authenticated;
@@ -1295,9 +1399,23 @@ language sql security definer set search_path = '' as $$
 $$;
 
 -- Кому отправить заказ. p_tier: 'pro' — сразу (Про и «лично вам»), 'all' — остальным через 10 минут. Повторно не отправляет.
+create or replace function vz_private.vz_tg_chosen(p_order uuid) returns jsonb
+language sql stable security definer set search_path = '' as $$
+  select jsonb_build_object('chats', to_jsonb(coalesce((select array_agg(t.chat_id) from public.vz_tg t
+        where t.card_id = o.taken_card and t.enabled), '{}'::bigint[])),
+    'scope', 'chosen', 'cargo', o.cargo, 'city', o.city, 'what', o.what,
+    'from', vz_private.vz_area(o.from_addr), 'to', vz_private.vz_area(o.to_addr),
+    'when', o.when_text, 'when_at', o.when_at, 'km', o.calc->'km', 'price', o.agreed_price)
+  from public.vz_orders o
+  where o.id = p_order and o.status in ('taken', 'done') and o.taken_card is not null;
+$$;
+create or replace function public.vz_tg_chosen(p_order uuid) returns jsonb
+language sql security invoker set search_path = '' as $$ select vz_private.vz_tg_chosen(p_order) $$;
+
 create or replace function vz_private.vz_tg_job(p_order uuid, p_tier text) returns jsonb
+
 language plpgsql security definer set search_path = '' as $$
-declare o public.vz_orders; known text[]; chats bigint[];
+declare o public.vz_orders; chats bigint[];
 begin
   select * into o from public.vz_orders where id = p_order for update;
   if o.id is null or o.status <> 'open' or o.expires_at < now()
@@ -1309,18 +1427,18 @@ begin
     if o.tg_all_at is not null or o.created_at > now() - interval '10 minutes' then return null; end if;
     update public.vz_orders set tg_all_at = now() where id = o.id;
   else return null; end if;
-  known := array(select distinct lower(btrim(x)) from (select city x from public.vz_cards where city <> ''
-    union select unnest(string_to_array(t.cities, ',')) from public.vz_tg t) s where btrim(x) <> '');
+  -- Рассылка: город заказа = город визитки или доп. город в настройках Telegram.
+  -- Пустой город у заказа или у водителя — в общую рассылку не входит (только личные заказы).
   select coalesce(array_agg(t.chat_id), '{}') into chats
   from public.vz_tg t join public.vz_cards c on c.id = t.card_id
   where t.enabled and not c.is_blocked
     and (case when o.scope = 'picked' then p_tier = 'pro' and exists (select 1 from public.vz_order_targets x where x.order_id = o.id and x.card_id = c.id)
          else (case when p_tier = 'pro' then coalesce(c.pro_until > now(), false) else not coalesce(c.pro_until > now(), false) end)
-           and (btrim(t.cities) = ''
-             or not exists (select 1 from unnest(known) k where position(k in lower(o.from_addr || ' ' || o.to_addr)) > 0)
-             or exists (select 1 from unnest(string_to_array(t.cities, ',')) y where btrim(y) <> '' and position(lower(btrim(y)) in lower(o.from_addr || ' ' || o.to_addr)) > 0))
+           and vz_private.vz_norm_city(o.city) <> ''
+           and (vz_private.vz_city_eq(c.city, o.city)
+             or exists (select 1 from unnest(string_to_array(t.cities, ',')) y where vz_private.vz_city_eq(y, o.city)))
          end);
-  return jsonb_build_object('chats', to_jsonb(chats), 'scope', o.scope, 'cargo', o.cargo,
+  return jsonb_build_object('chats', to_jsonb(chats), 'scope', o.scope, 'cargo', o.cargo, 'city', o.city,
     'from', vz_private.vz_area(o.from_addr), 'to', vz_private.vz_area(o.to_addr),
     'when', o.when_text, 'when_at', o.when_at, 'km', o.calc->'km', 'price', o.calc->'price');
 end $$;
@@ -1387,17 +1505,17 @@ create or replace function public.vz_tg_secrets() returns jsonb
 language sql security invoker set search_path = '' as $$ select vz_private.vz_tg_secrets() $$;
 
 revoke all on function vz_private.vz_tg_status(text), vz_private.vz_tg_link(text), vz_private.vz_tg_set(text, text, boolean), vz_private.vz_tg_unlink(text),
-  vz_private.vz_tg_bind(text, bigint), vz_private.vz_tg_unbind_chat(bigint), vz_private.vz_tg_job(uuid, text), vz_private.vz_tg_call(uuid, text),
+  vz_private.vz_tg_bind(text, bigint), vz_private.vz_tg_unbind_chat(bigint), vz_private.vz_tg_job(uuid, text), vz_private.vz_tg_chosen(uuid), vz_private.vz_tg_call(uuid, text),
   vz_private.vz_tg_on_order(), vz_private.vz_tg_delayed(), vz_private.vz_tg_secrets(),
   public.vz_tg_status(text), public.vz_tg_link(text), public.vz_tg_set(text, text, boolean), public.vz_tg_unlink(text),
-  public.vz_tg_bind(text, bigint), public.vz_tg_unbind_chat(bigint), public.vz_tg_job(uuid, text), public.vz_tg_secrets() from public, anon, authenticated;
+  public.vz_tg_bind(text, bigint), public.vz_tg_unbind_chat(bigint), public.vz_tg_job(uuid, text), public.vz_tg_chosen(uuid), public.vz_tg_secrets() from public, anon, authenticated;
 grant execute on function public.vz_tg_status(text), vz_private.vz_tg_status(text), public.vz_tg_link(text), vz_private.vz_tg_link(text),
   public.vz_tg_set(text, text, boolean), vz_private.vz_tg_set(text, text, boolean), public.vz_tg_unlink(text), vz_private.vz_tg_unlink(text) to anon, authenticated;
 do $$ begin
   if exists (select 1 from pg_roles where rolname = 'service_role') then
     grant usage on schema vz_private to service_role;
     grant execute on function public.vz_tg_bind(text, bigint), vz_private.vz_tg_bind(text, bigint), public.vz_tg_unbind_chat(bigint), vz_private.vz_tg_unbind_chat(bigint),
-      public.vz_tg_job(uuid, text), vz_private.vz_tg_job(uuid, text), public.vz_tg_secrets(), vz_private.vz_tg_secrets() to service_role;
+      public.vz_tg_job(uuid, text), vz_private.vz_tg_job(uuid, text), public.vz_tg_chosen(uuid), vz_private.vz_tg_chosen(uuid), public.vz_tg_secrets(), vz_private.vz_tg_secrets() to service_role;
   end if;
   if exists (select 1 from pg_extension where extname = 'pg_cron') then
     perform cron.unschedule(jobid) from cron.job where jobname = 'vz-tg-delayed';
@@ -1434,8 +1552,12 @@ grant execute on function vz_private.vz_calc_rates(), vz_private.vz_admin_set_ra
 create or replace function vz_private.vz_feed_meta(p_key text) returns jsonb
 language sql stable security definer set search_path = '' as $$
   select jsonb_build_object('pro', coalesce(c.pro_until > now(), false),
-    'later', case when coalesce(c.pro_until > now(), false) then 0 else (select count(*) from public.vz_orders o
+    'city', vz_private.vz_norm_city(c.city),
+    'needs_city', vz_private.vz_norm_city(c.city) = '',
+    'later', case when coalesce(c.pro_until > now(), false) or vz_private.vz_norm_city(c.city) = '' then 0
+      else (select count(*) from public.vz_orders o
       where o.status = 'open' and o.scope = 'all' and o.expires_at > now() and o.created_at > now() - interval '10 minutes'
+        and vz_private.vz_city_eq(c.city, o.city)
         and o.dev_hash not in (select d.dev_hash from public.vz_devices d where d.blocked)) end)
   from public.vz_cards c where c.key_hash = vz_private.vz_hash(p_key) and not c.is_blocked;
 $$;

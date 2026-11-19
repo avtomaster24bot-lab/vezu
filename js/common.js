@@ -358,6 +358,7 @@
   function cargoLabel(k) { return CARGO[k] || ''; }
   function orderText(o, toName) {
     var lines = [toName ? 'Здравствуйте, ' + String(toName).split(' ')[0] + '! Нужна перевозка.' : 'Здравствуйте! Нужна грузоперевозка.'];
+    if (o.city) lines.push('Город: ' + o.city);
     if (o.from) lines.push('Откуда: ' + o.from);
     if (o.geo) {
       lines.push('Точка на карте (2ГИС): ' + gisLink(o.geo));
@@ -374,6 +375,155 @@
   }
 
   function gisLink(g) { return 'https://2gis.kz/geo/' + g.lon.toFixed(6) + ',' + g.lat.toFixed(6); }
+
+  // ---------- города Казахстана (заказ и визитка водителя) ----------
+  var CITIES = ['Караганда', 'Алматы', 'Астана', 'Шымкент', 'Актобе', 'Тараз', 'Павлодар', 'Усть-Каменогорск', 'Семей', 'Атырау', 'Костанай', 'Кызылорда', 'Уральск', 'Петропавловск', 'Актау', 'Туркестан', 'Кокшетау', 'Талдыкорган', 'Экибастуз', 'Темиртау', 'Сарань', 'Балхаш', 'Жезказган', 'Риддер', 'Конаев', 'Каскелен', 'Степногорск', 'Жанаозен', 'Талгар'];
+  var CITY_ALIAS = {
+    'караганда': 'Караганда', 'karaganda': 'Караганда', 'qaraghandy': 'Караганда', 'qaragandy': 'Караганда', 'караганды': 'Караганда',
+    'алматы': 'Алматы', 'almaty': 'Алматы', 'алмата': 'Алматы',
+    'астана': 'Астана', 'astana': 'Астана', 'нур-султан': 'Астана', 'нурсултан': 'Астана', 'nur-sultan': 'Астана', 'nursultan': 'Астана',
+    'шымкент': 'Шымкент', 'shymkent': 'Шымкент', 'чимкент': 'Шымкент',
+    'актобе': 'Актобе', 'aktobe': 'Актобе', 'актюбинск': 'Актобе',
+    'тараз': 'Тараз', 'taraz': 'Тараз', 'джамбул': 'Тараз', 'жамбул': 'Тараз', 'жамбыл': 'Тараз',
+    'павлодар': 'Павлодар', 'pavlodar': 'Павлодар',
+    'усть-каменогорск': 'Усть-Каменогорск', 'усть каменогорск': 'Усть-Каменогорск', 'ust-kamenogorsk': 'Усть-Каменогорск', 'oskemen': 'Усть-Каменогорск', 'оскемен': 'Усть-Каменогорск',
+    'семей': 'Семей', 'semey': 'Семей', 'семипалатинск': 'Семей',
+    'атырау': 'Атырау', 'atyrau': 'Атырау', 'гурьев': 'Атырау',
+    'костанай': 'Костанай', 'kostanay': 'Костанай', 'qostanay': 'Костанай', 'кустанай': 'Костанай',
+    'кызылорда': 'Кызылорда', 'kyzylorda': 'Кызылорда', 'qyzylorda': 'Кызылорда', 'кзыл-орда': 'Кызылорда',
+    'уральск': 'Уральск', 'oral': 'Уральск', 'орал': 'Уральск',
+    'петропавловск': 'Петропавловск', 'petropavlovsk': 'Петропавловск', 'petropavl': 'Петропавловск',
+    'актау': 'Актау', 'aktau': 'Актау', 'шевченко': 'Актау',
+    'туркестан': 'Туркестан', 'turkestan': 'Туркестан', 'turkistan': 'Туркестан',
+    'кокшетау': 'Кокшетау', 'kokshetau': 'Кокшетау', 'кокчетав': 'Кокшетау',
+    'талдыкорган': 'Талдыкорган', 'taldykorgan': 'Талдыкорган', 'талды-курган': 'Талдыкорган',
+    'экибастуз': 'Экибастуз', 'ekibastuz': 'Экибастуз',
+    'темиртау': 'Темиртау', 'temirtau': 'Темиртау',
+    'сарань': 'Сарань', 'saran': 'Сарань',
+    'балхаш': 'Балхаш', 'balkhash': 'Балхаш',
+    'жезказган': 'Жезказган', 'zhezkazgan': 'Жезказган', 'джезказган': 'Жезказган',
+    'риддер': 'Риддер', 'ridder': 'Риддер',
+    'конаев': 'Конаев', 'qonaev': 'Конаев', 'капшагай': 'Конаев', 'капчагай': 'Конаев',
+    'каскелен': 'Каскелен', 'kaskelen': 'Каскелен',
+    'степногорск': 'Степногорск', 'жанаозен': 'Жанаозен', 'талгар': 'Талгар'
+  };
+  // viewbox Nominatim: minLon, minLat, maxLon, maxLat
+  var CITY_BOUNDS = {
+    'Караганда': [72.70, 49.60, 73.45, 50.15], 'Алматы': [76.70, 43.05, 77.20, 43.45], 'Астана': [71.20, 50.95, 71.75, 51.35],
+    'Шымкент': [69.45, 42.20, 69.80, 42.45], 'Актобе': [57.00, 50.15, 57.40, 50.40], 'Тараз': [71.25, 42.85, 71.50, 42.98],
+    'Павлодар': [76.85, 52.20, 77.10, 52.40], 'Усть-Каменогорск': [82.50, 49.85, 82.80, 50.05], 'Семей': [80.15, 50.35, 80.35, 50.50],
+    'Атырау': [51.80, 47.05, 51.98, 47.18], 'Костанай': [63.50, 53.15, 63.75, 53.28], 'Кызылорда': [65.45, 44.75, 65.60, 44.90],
+    'Уральск': [51.30, 51.15, 51.50, 51.30], 'Петропавловск': [69.05, 54.80, 69.25, 54.95], 'Актау': [51.15, 43.60, 51.30, 43.72],
+    'Туркестан': [68.20, 43.25, 68.35, 43.35], 'Кокшетау': [69.30, 53.25, 69.50, 53.35], 'Талдыкорган': [78.30, 45.00, 78.50, 45.10],
+    'Экибастуз': [75.25, 51.68, 75.50, 51.80], 'Темиртау': [72.90, 50.02, 73.05, 50.12], 'Сарань': [72.80, 49.78, 73.00, 49.85],
+    'Балхаш': [74.90, 46.75, 75.05, 46.90], 'Жезказган': [67.68, 47.75, 67.85, 47.85], 'Риддер': [83.45, 50.30, 83.60, 50.40],
+    'Конаев': [77.00, 43.80, 77.15, 43.92], 'Каскелен': [76.55, 43.15, 76.70, 43.25], 'Степногорск': [71.85, 52.30, 72.05, 52.40],
+    'Жанаозен': [52.80, 43.30, 53.00, 43.40], 'Талгар': [77.20, 43.28, 77.30, 43.35]
+  };
+  function normCity(s) {
+    s = String(s || '').replace(/\s+/g, ' ').trim();
+    if (!s) return '';
+    var k = s.toLowerCase().replace(/ё/g, 'е');
+    if (CITY_ALIAS[k]) return CITY_ALIAS[k];
+    var i, c;
+    for (i = 0; i < CITIES.length; i++) { c = CITIES[i]; if (c.toLowerCase().replace(/ё/g, 'е') === k) return c; }
+    s = s.replace(/[^A-Za-zА-Яа-яЁёІіҢңҒғҮүҰұҚқӨөҺһ \-]/g, '').replace(/\s+/g, ' ').trim();
+    return s.length < 2 ? '' : s.slice(0, 60);
+  }
+  function cityViewbox(city) {
+    var b = CITY_BOUNDS[normCity(city)];
+    if (!b) return '';
+    return '&viewbox=' + b[0] + ',' + b[3] + ',' + b[2] + ',' + b[1] + '&bounded=1';
+  }
+  function extractCity(j) {
+    var a = (j && j.address) || {};
+    return normCity(a.city || a.town || a.village || a.municipality || a.county || a.state || '');
+  }
+  function bindCityPicker(root, opts) {
+    opts = opts || {};
+    var box = typeof root === 'string' ? document.querySelector(root) : root;
+    if (!box) return null;
+    if (box._cityPick) return box._cityPick;
+    var name = box.getAttribute('data-city-name') || opts.name || 'city';
+    var remember = box.getAttribute('data-city-remember') || opts.remember || '';
+    var def = box.getAttribute('data-city-default') || opts.defaultCity || '';
+    var hid = box.querySelector('[name="' + name + '"]') || box.querySelector('input[type=hidden], input.inp');
+    var chips = box.querySelector('.city-chips');
+    var otherWrap = box.querySelector('.city-other');
+    var otherInp = otherWrap ? otherWrap.querySelector('input') : null;
+    var gpsBtn = box.querySelector('[data-city-gps]');
+    var gpsMsg = box.querySelector('[data-city-gps-msg]');
+    if (!hid) { hid = document.createElement('input'); hid.type = 'hidden'; hid.name = name; box.appendChild(hid); }
+    if (!chips) return null;
+    chips.innerHTML = CITIES.map(function (c) { return '<button type="button" class="qchip" data-city="' + esc(c) + '">' + esc(c) + '</button>'; }).join('') +
+      '<button type="button" class="qchip" data-city="__other">Другой город</button>';
+    function remembered() {
+      if (!remember) return '';
+      try { return normCity(localStorage.getItem('vezu-city-' + remember) || localStorage.getItem('vezu-city') || ''); } catch (e) { return ''; }
+    }
+    function persist(v) {
+      if (!remember || !v) return;
+      try { localStorage.setItem('vezu-city-' + remember, v); localStorage.setItem('vezu-city', v); } catch (e) {}
+    }
+    function current() { return normCity(hid.value === '__other' ? (otherInp && otherInp.value) : hid.value); }
+    function set(v, fromUser) {
+      v = v === '__other' ? '__other' : normCity(v);
+      var known = v && v !== '__other' && CITIES.indexOf(v) >= 0;
+      if (v && v !== '__other' && !known) { hid.value = v; if (otherInp) otherInp.value = v; v = '__other'; }
+      else hid.value = v === '__other' ? (fromUser && otherInp ? normCity(otherInp.value) : hid.value && CITIES.indexOf(hid.value) < 0 ? hid.value : '') : v;
+      if (v !== '__other') hid.value = v;
+      chips.querySelectorAll('[data-city]').forEach(function (b) {
+        var on = (v === '__other' && b.dataset.city === '__other') || (v !== '__other' && b.dataset.city === v);
+        b.classList.toggle('on', on); b.setAttribute('aria-pressed', on);
+      });
+      if (otherWrap) otherWrap.hidden = v !== '__other';
+      if (v === '__other' && otherInp && fromUser) otherInp.focus({ preventScroll: true });
+      var fin = current();
+      if (v !== '__other') { hid.value = fin; persist(fin); }
+      if (fromUser) hid.dispatchEvent(new Event('change', { bubbles: true }));
+      if (opts.onChange) opts.onChange(fin);
+    }
+    chips.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-city]'); if (!b) return;
+      set(b.dataset.city, true);
+    });
+    if (otherInp) otherInp.addEventListener('input', function () {
+      hid.value = normCity(otherInp.value);
+      persist(hid.value);
+      hid.dispatchEvent(new Event('change', { bubbles: true }));
+      if (opts.onChange) opts.onChange(hid.value);
+    });
+    if (gpsBtn) gpsBtn.addEventListener('click', function () {
+      if (!navigator.geolocation) { if (gpsMsg) { gpsMsg.hidden = false; gpsMsg.textContent = 'Геопозиция недоступна — выберите город из списка.'; } return; }
+      gpsBtn.disabled = true;
+      if (gpsMsg) { gpsMsg.hidden = false; gpsMsg.textContent = 'Определяю город…'; }
+      navigator.geolocation.getCurrentPosition(function (pos) {
+        var url = 'https://nominatim.openstreetmap.org/reverse?format=jsonv2&accept-language=ru&zoom=10&addressdetails=1&lat=' + pos.coords.latitude + '&lon=' + pos.coords.longitude;
+        fetch(url).then(function (r) { return r.json(); }).then(function (j) {
+          gpsBtn.disabled = false;
+          var c = extractCity(j);
+          if (!c) { if (gpsMsg) gpsMsg.textContent = 'Не удалось определить город — выберите из списка.'; return; }
+          set(c, true);
+          if (gpsMsg) { gpsMsg.hidden = false; gpsMsg.textContent = 'Похоже, вы в городе «' + c + '». Можно выбрать другой.'; }
+        }, function () { gpsBtn.disabled = false; if (gpsMsg) gpsMsg.textContent = 'Не удалось определить город — выберите из списка.'; });
+      }, function () {
+        gpsBtn.disabled = false;
+        if (gpsMsg) { gpsMsg.hidden = false; gpsMsg.textContent = 'Разрешите доступ к геопозиции или выберите город из списка.'; }
+      }, { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 });
+    });
+    var initial = normCity(opts.value || hid.value) || remembered() || def;
+    if (initial) set(initial, false);
+    else set('', false);
+    var api = { set: set, value: current, el: box };
+    box._cityPick = api;
+    return api;
+  }
+  function bindCityPickers(scope) {
+    (scope || document).querySelectorAll('[data-city-pick]').forEach(function (el) { bindCityPicker(el); });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { bindCityPickers(document); });
+  else setTimeout(function () { bindCityPickers(document); }, 0);
+
   function gmapsLink(g) { return 'https://maps.google.com/?q=' + g.lat.toFixed(6) + ',' + g.lon.toFixed(6); }
 
   // ---------- геолокация: «Где я» → координаты → короткий адрес (Nominatim) ----------
@@ -729,6 +879,8 @@
   function bindOrderForm(form, getPhone, getName, opts) {
     opts = opts || {};
     bindGeo(form);
+    bindCityPickers(form);
+    if (!opts.city) opts.city = function () { var i = form.querySelector('[name=city], [name=t]'); return i ? normCity(i.value) : ''; };
     if (window.VEZU_CALC && !opts.noCalc) window.VEZU_CALC.bind(form, opts);
     form.querySelectorAll('[data-fill]').forEach(function (b) {
       b.addEventListener('click', function () {
@@ -764,7 +916,8 @@
     if (price) price.addEventListener('input', function () { price.value = fmtNum(price.value.replace(/\D/g, '').slice(0, 9)); });
     form.addEventListener('submit', function (ev) {
       ev.preventDefault();
-      var o = {}; ['from', 'to', 'what', 'when', 'price', 'cargo'].forEach(function (k) { var i = form.querySelector('[name=' + k + ']'); o[k] = i ? i.value.trim() : ''; });
+      var o = {}; ['from', 'to', 'what', 'when', 'price', 'cargo', 'city'].forEach(function (k) { var i = form.querySelector('[name=' + k + ']'); o[k] = i ? i.value.trim() : ''; });
+      if (window.VEZU && VEZU.normCity) o.city = VEZU.normCity(o.city || (form.querySelector('[name=city_other]') && form.querySelector('[name=city_other]').value) || '');
       if (form._geo && o.from) o.geo = form._geo;
       if (form._calc) o.calc = form._calc;
       if (opts.note) o.note = opts.note();
@@ -835,6 +988,7 @@
     IS_MOBILE: IS_MOBILE, IS_ANDROID: IS_ANDROID, IS_IOS: IS_IOS, _nav: function (u) { location.href = u; }, gisLink: gisLink, gmapsLink: gmapsLink, fmtNum: fmtNum, fmtPrice: fmtPrice, orderText: orderText,
     services: services, initials: initials, metaLine: metaLine, hoursText: hoursText, isOpen: isOpen, almatyHour: almatyHour, priceText: priceText, cardHero: cardHero, statusInfo: statusInfo, reviewsOn: reviewsOn, CONSENT: CONSENT, CARGO: CARGO, cargoLabel: cargoLabel, consentHtml: consentHtml, consentGate: consentGate, plural: plural, hhmm: hhmm, cardDetails: cardDetails, applyTheme: applyTheme,
     qrSvg: qrSvg, qrPng: qrPng, vcf: vcf, contactIntent: contactIntent, addContact: addContact, download: download, fileName: fileName,
+    CITIES: CITIES, normCity: normCity, cityViewbox: cityViewbox, bindCityPicker: bindCityPicker, bindCityPickers: bindCityPickers,
     toast: toast, copy: copy, share: share, bindOrderForm: bindOrderForm, bindInstall: bindInstall, cardManifest: cardManifest
   };
 })();

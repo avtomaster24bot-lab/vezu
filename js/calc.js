@@ -59,9 +59,11 @@
     var m = q.match(/^\s*(-?\d{1,2}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)\s*$/);
     if (m) return Promise.resolve({ lat: +m[1], lon: +m[2] });
     if (city && q.toLowerCase().indexOf(city.toLowerCase()) < 0) q += ', ' + city;
-    if (gcache[q]) return Promise.resolve(gcache[q]);
-    return tfetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=kz&accept-language=ru&q=' + encodeURIComponent(q), 8000)
-      .then(function (j) { if (!j || !j[0]) throw new Error('notfound'); return (gcache[q] = { lat: +j[0].lat, lon: +j[0].lon }); });
+    var key = q + '|' + (city || '');
+    if (gcache[key]) return Promise.resolve(gcache[key]);
+    var box = (window.VEZU && VEZU.cityViewbox) ? VEZU.cityViewbox(city) : '';
+    return tfetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=kz&accept-language=ru&q=' + encodeURIComponent(q) + box, 8000)
+      .then(function (j) { if (!j || !j[0]) throw new Error('notfound'); return (gcache[key] = { lat: +j[0].lat, lon: +j[0].lon }); });
   }
   function straight(a, b) {
     var R = 6371, rad = Math.PI / 180, dLa = (b.lat - a.lat) * rad, dLo = (b.lon - a.lon) * rad;
@@ -117,9 +119,14 @@
       var k = parseFloat(String(km.value).replace(',', '.'));
       if (!isFinite(k) || k <= 0) { form._calc = null; out.hidden = true; sum.textContent = ''; return; }
       var o = { km: Math.round(k), inter: st.inter, loaders: st.loaders, floors: +fl.value || 0 };
-      var r = R(), e = estimate(o, r);
+      var absurd = !o.inter && o.km > 300;
+      var r = absurd ? null : R(), e = estimate(o, r);
       out.hidden = false;
       form._calc = { km: o.km, how: st.how, inter: o.inter, loaders: o.loaders, floors: o.floors, a: st.a, b: st.b };
+      if (absurd) {
+        out.innerHTML = '<p class="calc-range calc-km">~' + o.km + ' км</p><p class="fine">Слишком далеко для поездки по городу. Проверьте адреса или отметьте «Межгород» — цену пока не считаем.</p>';
+        sum.textContent = '~' + o.km + ' км'; return;
+      }
       if (!e) {
         out.innerHTML = '<p class="calc-range calc-km">~' + o.km + ' км</p><p class="fine">Цену предложат водители — сравните предложения и выберите.</p>';
         sum.textContent = '~' + o.km + ' км'; return;
@@ -145,6 +152,15 @@
           if (my !== seq) return;
           st.a = ab[0]; st.b = ab[1]; st.how = r.how; st.manual = false;
           km.value = String(Math.max(1, Math.round(r.km)));
+          if (!st.inter && r.km > 300) {
+            say('Расстояние получилось ' + km.value + ' км — так далеко для поездки по городу. Проверьте город и адреса или отметьте «Межгород». Цену пока не показываем.', true);
+            calc();
+            if (form._calc) { delete form._calc.lo; delete form._calc.hi; }
+            var out = box.querySelector('[data-out]'), sum = box.querySelector('[data-sum]');
+            if (out) out.innerHTML = '<p class="calc-range calc-km">~' + Math.round(r.km) + ' км</p><p class="fine">Проверьте город и адреса. Если это межгород — нажмите «Межгород».</p>';
+            if (sum) sum.textContent = '~' + Math.round(r.km) + ' км';
+            return;
+          }
           if (!st.touchedInter) setInter(r.km > 50 ? 1 : 0);
           say(r.how === 'route' ? 'Маршрут: ' + km.value + ' км по дорогам.' : 'Примерно ' + km.value + ' км (по прямой × 1,3) — маршрут не построился.');
           calc();

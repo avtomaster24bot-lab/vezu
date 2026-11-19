@@ -82,7 +82,7 @@
     if (!card || card.is_blocked) { host.hidden = true; host.innerHTML = ''; return; }
     host.hidden = false;
     host.innerHTML = '<section class="glass cab-sec" id="status"><h3>Мой статус</h3>' + statusHtml(card.status) + '</section>' +
-      '<a class="cab-feed glass" href="app.html#feed"><svg><use href="#i-feed"/></svg><span><b>Лента заказов</b><small>Заказы клиентов рядом — откликайтесь «Беру»</small></span><em class="cnt" data-feedn' + (feedN ? '' : ' hidden') + '>' + feedN + '</em></a>' +
+      '<a class="cab-feed glass" href="app.html#feed"><svg><use href="#i-feed"/></svg><span><b>Лента заказов</b><small>Заказы вашего города — откликайтесь своей ценой. Подтверждённые видны как «В работе»</small></span><em class="cnt" data-feedn' + (feedN ? '' : ' hidden') + '>' + feedN + '</em></a>' +
       '<section class="glass cab-sec" id="vfsec"><h3>Значок «Проверен»</h3><div data-vf>' + verifyHtml() + '</div></section>' +
       (window.VEZU_STICKER && window.qrcode && card.slug ? '<section class="glass cab-sec" id="stksec"><h3>Наклейка «Закажи эту машину»</h3>' + window.VEZU_STICKER.html() + '</section>' : '') +
       '<section class="glass cab-sec" id="tgsec"><h3><svg class="tg-ic"><use href="#i-tg"/></svg>Уведомления в Telegram</h3><div data-tg><p class="muted">Загружаю…</p></div></section>' +
@@ -111,7 +111,8 @@
     C.rpc('vz_tg_status', { p_key: C.key() }).then(function (st) {
       if (!st.linked) {
         return C.rpc('vz_tg_link', { p_key: C.key() }).then(function (tok) {
-          el.innerHTML = '<p class="muted">Новые заказы из ленты придут вам в Telegram — без имени и телефона клиента, только тип груза, район и время.' +
+          el.innerHTML = '<p class="muted">В Telegram придут заказы вашего города (как в визитке) — без имени и телефона клиента, только тип груза, район и время.' +
+            (st.city ? '' : ' Сначала укажите город в визитке, иначе общие заказы не придут.') +
             (st.pro ? ' С «Про» — сразу.' : ' Без «Про» — через 10 минут после публикации, с «Про» — сразу.') + '</p>' +
             '<a class="btn btn-tg btn-block" href="https://t.me/' + esc(st.bot) + '?start=' + esc(tok) + '" target="_blank" rel="noopener" data-tggo><svg><use href="#i-tg"/></svg>Подключить Telegram</a>' +
             '<p class="fine">Откроется бот @' + esc(st.bot) + ' — нажмите «Старт». Ссылка действует 30 минут.</p>';
@@ -120,9 +121,9 @@
       clearInterval(tgPoll); tgPoll = null;
       el.innerHTML = '<p class="tg-ok">✅ Подключено — заказы приходят в @' + esc(st.bot) + '</p>' +
         '<label class="check"><input type="checkbox" data-tgon' + (st.enabled ? ' checked' : '') + '><span>Присылать новые заказы</span></label>' +
-        '<label class="fld"><span>Города (через запятую; пусто — все заказы)</span><input class="inp" data-tgc maxlength="200" value="' + esc(st.cities) + '" placeholder="' + esc(st.city || 'Алматы, Каскелен') + '"></label>' +
+        '<label class="fld"><span>Ещё города (необязательно)</span><input class="inp" data-tgc maxlength="200" value="' + esc(st.cities) + '" placeholder="' + esc(st.city ? st.city + ', Темиртау' : 'Караганда, Темиртау') + '"></label>' +
         '<div class="row2"><button type="button" class="btn btn-glass" data-tgsave>Сохранить</button><button type="button" class="btn btn-glass" data-tgoff>Отключить</button></div>' +
-        '<p class="fine">Заказы без города в адресе приходят всем. Отключить можно и командой /stop в боте — тогда ваш Telegram отвязывается от визитки.</p>';
+        '<p class="fine">По умолчанию приходят заказы города из визитки' + (st.city ? ' («' + esc(st.city) + '»)' : ' (сначала укажите город в визитке)') + '. Сюда можно добавить соседние города. Пустое поле больше не означает «все города». Отключить можно и командой /stop в боте.</p>';
     }, function () { el.innerHTML = '<p class="muted">Уведомления недоступны — сохраните визитку в облаке.</p>'; });
   }
   function loadReviews() {

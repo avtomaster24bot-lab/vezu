@@ -156,14 +156,17 @@ select 'off: hidden', public.vz_card(current_setting('vz.slug'))->'rating' = 'nu
 reset role;
 update public.vz_settings set value = 'true' where key = 'reviews_enabled';
 set role anon;
+-- город водителя для ленты (Новый2 / vz.nk создавался без города)
+select public.vz_save_card(current_setting('vz.nk'), (public.vz_me(current_setting('vz.nk'))->'d') || '{"t":"Алматы"}');
 -- v8: заказы
 \set D1 '''dev-1111111111111111111111111111111111'''
 \set D2 '''dev-2222222222222222222222222222222222'''
 select pg_temp.expect_err($$select public.vz_order_create('dev-1111111111111111111111111111111111', '{"what":"Диван"}')$$, 'телефон');
 select pg_temp.expect_err($$select public.vz_order_create('dev-1111111111111111111111111111111111', '{"what":"см. www.x.kz","phone":"87011234567"}')$$, 'ссылки');
-select set_config('vz.o1', public.vz_order_create(:D1, '{"what":"Диван","from":"Абая 1","to":"Сатпаева 5","phone":"8 701 123 45 67","name":"Айгерим К","calc":{"km":12,"lo":9000,"hi":11000,"a":{"lat":43.2,"lon":76.9,"x":"bad"},"evil":"x"}}')::text, false);
-select set_config('vz.o2', public.vz_order_create(:D1, '{"what":"Шкаф","phone":"77012223344"}', array[current_setting('vz.slug')])::text, false);
-select set_config('vz.o3', public.vz_order_create(:D2, '{"what":"Мусор","phone":"77015556600"}', array['refer'])::text, false);
+select pg_temp.expect_err($$select public.vz_order_create('dev-1111111111111111111111111111111111', '{"what":"Диван","phone":"87011234567"}')$$, 'город');
+select set_config('vz.o1', public.vz_order_create(:D1, '{"what":"Диван","from":"Абая 1","to":"Сатпаева 5","phone":"8 701 123 45 67","name":"Айгерим К","city":"Алматы","calc":{"km":12,"lo":9000,"hi":11000,"a":{"lat":43.2,"lon":76.9,"x":"bad"},"evil":"x"}}')::text, false);
+select set_config('vz.o2', public.vz_order_create(:D1, '{"what":"Шкаф","phone":"77012223344","city":"Алматы"}', array[current_setting('vz.slug')])::text, false);
+select set_config('vz.o3', public.vz_order_create(:D2, '{"what":"Мусор","phone":"77015556600","city":"Астана"}', array['refer'])::text, false);
 select 'feed', jsonb_array_length(public.vz_feed(current_setting('vz.nk'))), public.vz_feed(current_setting('vz.nk'))->0->>'personal', public.vz_feed(current_setting('vz.nk'))->0->>'phone' is null;
 select 'calc clean', public.vz_my_orders(:D1)->1->'calc';
 select 'no phone in feed', bool_and(x->>'phone' is null) from jsonb_array_elements(public.vz_feed(current_setting('vz.nk'))) x;
@@ -179,21 +182,21 @@ select 'feed mine + phone', (select x->>'mine' || ' ' || coalesce(x->>'phone', '
 select 'review tok', length(public.vz_order_review(:D1, current_setting('vz.o1')::uuid)->>'token');
 select pg_temp.expect_err($$select public.vz_order_review('dev-1111111111111111111111111111111111', current_setting('vz.o1')::uuid)$$, 'уже');
 select 'cancel', public.vz_order_cancel(:D1, current_setting('vz.o2')::uuid), jsonb_array_length(public.vz_feed(current_setting('vz.nk')));
-select 'rate', public.vz_order_create(:D2, '{"what":"x","phone":"77015556600"}') is not null from generate_series(1,4);
-select pg_temp.expect_err($$select public.vz_order_create('dev-2222222222222222222222222222222222', '{"what":"x","phone":"77015556600"}')$$, '5 заказов');
+select 'rate', public.vz_order_create(:D2, '{"what":"x","phone":"77015556600","city":"Астана"}') is not null from generate_series(1,4);
+select pg_temp.expect_err($$select public.vz_order_create('dev-2222222222222222222222222222222222', '{"what":"x","phone":"77015556600","city":"Астана"}')$$, '5 заказов');
 select 'admin orders', jsonb_array_length(public.vz_admin_orders(:KA));
 select 'block', public.vz_admin_order_set(:KA, current_setting('vz.o3')::uuid, null, true);
-select pg_temp.expect_err($$select public.vz_order_create('dev-2222222222222222222222222222222222', '{"what":"x","phone":"77015556600"}')$$, 'отключены');
+select pg_temp.expect_err($$select public.vz_order_create('dev-2222222222222222222222222222222222', '{"what":"x","phone":"77015556600","city":"Астана"}')$$, 'отключены');
 select pg_temp.expect_err($$select count(*) from public.vz_orders$$, 'permission');
 -- согласия
 reset role;
 select 'consents logged', (select count(*) from public.vz_consents);
 insert into public.vz_settings values ('consent_required', 'true') on conflict (key) do update set value = 'true';
 set role anon;
-select pg_temp.expect_err($$select public.vz_order_create('dev-3333333333333333333333333333333333', '{"what":"x","phone":"77015556601"}')$$, 'согласие');
+select pg_temp.expect_err($$select public.vz_order_create('dev-3333333333333333333333333333333333', '{"what":"x","phone":"77015556601","city":"Алматы"}')$$, 'согласие');
 select pg_temp.expect_err($$select public.vz_save_card(current_setting('vz.nk'), public.vz_me(current_setting('vz.nk'))->'d')$$, 'согласие');
 select pg_temp.expect_err($$select public.vz_pay_request(current_setting('vz.nk'), 1)$$, 'согласие');
-select 'order w consent', public.vz_order_create('dev-3333333333333333333333333333333333', '{"what":"x","phone":"77015556601"}', null, 'order_v1') is not null;
+select 'order w consent', public.vz_order_create('dev-3333333333333333333333333333333333', '{"what":"x","phone":"77015556601","city":"Алматы"}', null, 'order_v1') is not null;
 select 'save w consent', public.vz_save_card(current_setting('vz.nk'), public.vz_me(current_setting('vz.nk'))->'d', null, '', true, null, 'driver_v1') is not null;
 select 'save again', public.vz_save_card(current_setting('vz.nk'), public.vz_me(current_setting('vz.nk'))->'d', null, '', true, null, 'driver_v1') is not null;
 select 'pay w consent', public.vz_pay_request(current_setting('vz.nk'), 1, 'pay_v1');
@@ -227,10 +230,10 @@ select 'RETENTION OK';
 
 -- v11 cargo
 do $$ declare oid uuid; j jsonb; begin
-  oid := public.vz_order_create('odcargotest00000000000000000000000000000000000001', '{"what":"тест","from":"А","phone":"77000000077","cargo":"trash"}', null, 'order_v1');
+  oid := public.vz_order_create('odcargotest00000000000000000000000000000000000001', '{"what":"тест","from":"А","phone":"77000000077","cargo":"trash","city":"Караганда"}', null, 'order_v1');
   select vz_private.vz_order_pub(o, false) into j from public.vz_orders o where id = oid;
   if j->>'cargo' <> 'trash' then raise exception 'cargo %', j; end if;
-  oid := public.vz_order_create('odcargotest00000000000000000000000000000000000002', '{"what":"тест","from":"А","phone":"77000000077","cargo":"hack"}', null, 'order_v1');
+  oid := public.vz_order_create('odcargotest00000000000000000000000000000000000002', '{"what":"тест","from":"А","phone":"77000000077","cargo":"hack","city":"Караганда"}', null, 'order_v1');
   if (select cargo from public.vz_orders where id = oid) <> '' then raise exception 'cargo whitelist'; end if;
   delete from public.vz_orders where dev_hash in (vz_private.vz_hash('odcargotest00000000000000000000000000000000000001'), vz_private.vz_hash('odcargotest00000000000000000000000000000000000002'));
 end $$;
@@ -249,19 +252,24 @@ begin
   if vz_private.vz_tg_bind(tok, 111) is not null then raise exception 'token reuse'; end if;
   perform vz_private.vz_tg_bind(public.vz_tg_link(k2), 222);
   perform public.vz_tg_set(k2, 'Астана', true);
-  oid := public.vz_order_create('odtgtest000000000000000000000000000000000000001', '{"what":"тест","from":"Абая 150, Алматы","to":"Сатпаева 3","phone":"77000000088","cargo":"move"}', null, 'order_v1');
+  oid := public.vz_order_create('odtgtest000000000000000000000000000000000000001', '{"what":"тест","from":"Абая 150, Алматы","to":"Сатпаева 3","phone":"77000000088","cargo":"move","city":"Алматы"}', null, 'order_v1');
   j := vz_private.vz_tg_job(oid, 'pro');
   if j->'chats' <> '[111]'::jsonb then raise exception 'pro chats %', j; end if;
-  if j->>'from' <> 'Абая, Алматы' or j ? 'phone' then raise exception 'area %', j; end if;
+  if j->>'from' <> 'Абая, Алматы' or j ? 'phone' or j->>'city' <> 'Алматы' then raise exception 'area %', j; end if;
   if vz_private.vz_tg_job(oid, 'pro') is not null then raise exception 'pro twice'; end if;
   if vz_private.vz_tg_job(oid, 'all') is not null then raise exception 'all too early'; end if;
   update public.vz_orders set created_at = now() - interval '11 minutes' where id = oid;
   j := vz_private.vz_tg_job(oid, 'all');
   if j->'chats' <> '[]'::jsonb then raise exception 'astana driver must not get almaty order %', j; end if;
-  oid2 := public.vz_order_create('odtgtest000000000000000000000000000000000000002', '{"what":"тест","from":"Кабанбай 5","phone":"77000000088"}', null, 'order_v1');
+  oid2 := public.vz_order_create('odtgtest000000000000000000000000000000000000002', '{"what":"тест","from":"Кабанбай 5","phone":"77000000088","city":"Астана"}', null, 'order_v1');
   update public.vz_orders set created_at = now() - interval '11 minutes' where id = oid2;
   j := vz_private.vz_tg_job(oid2, 'all');
-  if j->'chats' <> '[222]'::jsonb then raise exception 'no-city order to basic %', j; end if;
+  if j->'chats' <> '[222]'::jsonb then raise exception 'astana order to basic %', j; end if;
+  -- заказ без города (как у старых записей) никому в рассылку не уходит
+  update public.vz_orders set city = '' where id = oid2;
+  update public.vz_orders set tg_all_at = null, created_at = now() - interval '11 minutes' where id = oid2;
+  j := vz_private.vz_tg_job(oid2, 'all');
+  if j->'chats' <> '[]'::jsonb then raise exception 'empty-city order must not broadcast %', j; end if;
   if not vz_private.vz_tg_unbind_chat(222) then raise exception 'unbind'; end if;
   perform public.vz_delete_card(k);
   if exists (select 1 from public.vz_tg where chat_id = 111) then raise exception 'cascade'; end if;
@@ -278,7 +286,7 @@ begin
   select id into c1 from public.vz_cards where slug = 'pr-test-a'; select id into c2 from public.vz_cards where slug = 'pr-test-b';
   update public.vz_cards set pro_until = now() + interval '10 days' where id = c1;
   update public.vz_cards set pro_until = null where id = c2;
-  oid := public.vz_order_create('odprtest000000000000000000000000000000000000001', '{"what":"тест","from":"А","phone":"77000000099"}', null, 'order_v1');
+  oid := public.vz_order_create('odprtest000000000000000000000000000000000000001', '{"what":"тест","from":"А","phone":"77000000099","city":"Алматы"}', null, 'order_v1');
   f := public.vz_feed(k);  if not exists (select 1 from jsonb_array_elements(f) e where (e->>'id')::uuid = oid) then raise exception 'pro must see new order'; end if;
   f := public.vz_feed(k2); if exists (select 1 from jsonb_array_elements(f) e where (e->>'id')::uuid = oid) then raise exception 'basic must not see new order yet'; end if;
   m := public.vz_feed_meta(k2); if (m->>'later')::int < 1 or (m->>'pro')::boolean then raise exception 'meta %', m; end if;
@@ -295,3 +303,78 @@ begin
   delete from public.vz_orders where id = oid;
 end $$;
 select 'PRIO OK';
+
+-- v16: совпадение города в ленте и нормализация
+do $$ declare k text := 'ctkey_' || repeat('a', 30); k2 text := 'ctkey_' || repeat('b', 30); k3 text := 'ctkey_' || repeat('c', 30);
+  c1 uuid; c2 uuid; c3 uuid; oid uuid; oid2 uuid; f jsonb; m jsonb;
+begin
+  if vz_private.vz_norm_city('karaganda') <> 'Караганда' or vz_private.vz_norm_city('Нур-Султан') <> 'Астана' then raise exception 'norm'; end if;
+  if not vz_private.vz_city_eq('Алматы', 'almaty') or vz_private.vz_city_eq('', 'Алматы') or vz_private.vz_city_eq('Караганда', 'Алматы') then raise exception 'eq'; end if;
+  perform public.vz_save_card(k, '{"n":"Крг","p":"77000001301","t":"Караганда"}', 'ct-test-a', 'gazel', true, null, 'driver_v1');
+  perform public.vz_save_card(k2, '{"n":"Алм","p":"77000001302","t":"Алматы"}', 'ct-test-b', 'gazel', true, null, 'driver_v1');
+  perform public.vz_save_card(k3, '{"n":"Без","p":"77000001303"}', 'ct-test-c', 'gazel', true, null, 'driver_v1');
+  select id into c1 from public.vz_cards where slug = 'ct-test-a';
+  select id into c2 from public.vz_cards where slug = 'ct-test-b';
+  select id into c3 from public.vz_cards where slug = 'ct-test-c';
+  update public.vz_cards set pro_until = now() + interval '10 days' where id in (c1, c2, c3);
+  oid := public.vz_order_create('odcttest000000000000000000000000000000000000001', '{"what":"тест","from":"Центр","phone":"77000000101","city":"Караганда"}', null, 'order_v1');
+  f := public.vz_feed(k);  if not exists (select 1 from jsonb_array_elements(f) e where (e->>'id')::uuid = oid) then raise exception 'karaganda must see own city'; end if;
+  f := public.vz_feed(k2); if exists (select 1 from jsonb_array_elements(f) e where (e->>'id')::uuid = oid) then raise exception 'almaty must not see karaganda'; end if;
+  f := public.vz_feed(k3); if exists (select 1 from jsonb_array_elements(f) e where (e->>'id')::uuid = oid) then raise exception 'empty city must not see all-orders'; end if;
+  m := public.vz_feed_meta(k3); if not (m->>'needs_city')::boolean then raise exception 'needs_city %', m; end if;
+  begin perform public.vz_order_respond(k2, oid, 5000, ''); raise exception 'other city respond allowed'; exception when others then if sqlerrm = 'other city respond allowed' then raise; end if; end;
+  -- личный заказ виден водителю без города и из другого города
+  oid2 := public.vz_order_create('odcttest000000000000000000000000000000000000002', '{"what":"личное","phone":"77000000102","city":"Караганда"}', array['ct-test-c'], 'order_v1');
+  f := public.vz_feed(k3); if not exists (select 1 from jsonb_array_elements(f) e where (e->>'id')::uuid = oid2 and (e->>'personal')::boolean) then raise exception 'personal visible without city'; end if;
+  perform public.vz_delete_card(k); perform public.vz_delete_card(k2); perform public.vz_delete_card(k3);
+  delete from public.vz_orders where id in (oid, oid2);
+end $$;
+select 'CITY OK';
+
+-- v16: очередь откликов, подтверждение, «В работе» в ленте города (без телефона)
+do $$ declare
+  k text := 'cfkey_' || repeat('a', 30); k2 text := 'cfkey_' || repeat('b', 30);
+  c1 uuid; c2 uuid; oid uuid; f jsonb; my jsonb; j jsonb;
+begin
+  perform public.vz_save_card(k, '{"n":"Первый","p":"77000001401","t":"Караганда"}', 'cf-test-a', 'gazel', true, null, 'driver_v1');
+  perform public.vz_save_card(k2, '{"n":"Второй","p":"77000001402","t":"Караганда"}', 'cf-test-b', 'gazel', true, null, 'driver_v1');
+  select id into c1 from public.vz_cards where slug = 'cf-test-a';
+  select id into c2 from public.vz_cards where slug = 'cf-test-b';
+  update public.vz_cards set pro_until = now() + interval '10 days' where id in (c1, c2);
+  oid := public.vz_order_create('odcftest000000000000000000000000000000000000001', '{"what":"диван","from":"Центр","phone":"77000000201","city":"Караганда"}', null, 'order_v1');
+  perform public.vz_order_respond(k, oid, 8000, 'первый');
+  perform public.vz_order_respond(k2, oid, 7000, 'второй');
+  my := public.vz_my_orders('odcftest000000000000000000000000000000000000001');
+  if my->0->'responses'->0->>'slug' <> 'cf-test-a' then raise exception 'queue order %', my->0->'responses'; end if;
+  if my->0->'responses'->1->>'slug' <> 'cf-test-b' then raise exception 'queue second'; end if;
+  -- чужой токен не может подтвердить
+  begin perform public.vz_order_pick('otherdev00000000000000000000000000000000000001', oid, 'cf-test-a', 8000);
+    raise exception 'foreign pick allowed';
+  exception when others then if sqlerrm = 'foreign pick allowed' then raise; end if; end;
+  perform public.vz_order_pick('odcftest000000000000000000000000000000000000001', oid, 'cf-test-a', 8500);
+  if (select status from public.vz_orders where id = oid) <> 'taken' or (select agreed_price from public.vz_orders where id = oid) <> 8500 then raise exception 'pick state'; end if;
+  begin perform public.vz_order_pick('odcftest000000000000000000000000000000000000001', oid, 'cf-test-b', 7000);
+    raise exception 'second pick allowed';
+  exception when others then if sqlerrm = 'second pick allowed' then raise; end if; end;
+  begin perform public.vz_order_respond(k2, oid, 6000, ''); raise exception 'respond after taken';
+  exception when others then if sqlerrm = 'respond after taken' then raise; end if; end;
+  -- другой водитель видит «в работе» и цену, без телефона
+  f := public.vz_feed(k2);
+  select e from jsonb_array_elements(f) e where (e->>'id')::uuid = oid into j;
+  if j is null or j->>'status' <> 'taken' or (j->>'agreed')::int <> 8500 or j->>'phone' is not null then raise exception 'social %', j; end if;
+  if (j->>'mine')::boolean then raise exception 'other driver mine'; end if;
+  -- выбранный водитель видит телефон и свой заказ
+  f := public.vz_feed(k);
+  select e from jsonb_array_elements(f) e where (e->>'id')::uuid = oid into j;
+  if j->>'phone' is null or not (j->>'mine')::boolean then raise exception 'chosen feed %', j; end if;
+  j := vz_private.vz_tg_chosen(oid);
+  if j->>'price' <> '8500' or j->>'what' <> 'диван' then raise exception 'chosen payload %', j; end if;
+  perform public.vz_driver_finish(k, oid);
+  if (select status from public.vz_orders where id = oid) <> 'done' then raise exception 'finish'; end if;
+  f := public.vz_feed(k2);
+  select e from jsonb_array_elements(f) e where (e->>'id')::uuid = oid into j;
+  if j->>'status' <> 'done' or j->>'phone' is not null then raise exception 'done social %', j; end if;
+  perform public.vz_delete_card(k); perform public.vz_delete_card(k2);
+  delete from public.vz_orders where id = oid;
+end $$;
+select 'CONFIRM OK';

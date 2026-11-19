@@ -43,6 +43,16 @@ FOOT='''<footer class="foot">
   </div>
 </footer>
 '''
+CITY_FIELDS='''    <div class="fld city-f" data-city-pick data-city-default="Караганда" data-city-remember="order">
+      <span class="cargo-h">Город заказа *</span>
+      <p class="fine">Заказ увидят водители этого города. Для межгорода укажите город, откуда везёте.</p>
+      <div class="qchips city-chips" role="group" aria-label="Город"></div>
+      <input type="hidden" name="city" value="">
+      <label class="fld city-other" hidden><span>Название города</span><input class="inp" name="city_other" maxlength="40" placeholder="Например: Темиртау"></label>
+      <button type="button" class="lnk city-gps" data-city-gps>Определить город по геопозиции</button>
+      <p class="fine city-gps-msg" data-city-gps-msg hidden></p>
+    </div>
+'''
 ORDER_FIELDS='''    <label class="fld"><span class="sr">Что везём</span><input class="inp" name="what" placeholder="{ph_what}" data-i18n-ph="what" maxlength="120"></label>
     <div class="route">
       <i class="dot d1"></i><i class="dot d2"></i>
@@ -137,7 +147,7 @@ index=head('ВЕЗУ — перевезём что угодно по лучше�
         <h2>Заказ <b>2 касания</b></h2>
         <button type="button" class="info-btn" data-info="geo" aria-label="Что такое «Где я»"><svg><use href="#i-info"/></svg>Где я?</button>
       </div>
-{TPL}{QCHIPS}{ORDER_FIELDS.replace('{ph_what}','Что везём? Например: диван и 10 коробок')}      <button class="btn btn-wa btn-lg btn-block" type="submit" data-nofab><svg><use href="#i-wa"/></svg>Отправить в WhatsApp</button>
+{TPL}{QCHIPS}{CITY_FIELDS}{ORDER_FIELDS.replace('{ph_what}','Что везём? Например: диван и 10 коробок')}      <button class="btn btn-wa btn-lg btn-block" type="submit" data-nofab><svg><use href="#i-wa"/></svg>Отправить в WhatsApp</button>
       <p class="hint">Откроется WhatsApp с готовым сообщением. Цену можно не указывать. Хотите, чтобы водители сами предложили цену? <a href="app.html#order">Заказ в ленту водителей →</a></p>
       <button type="button" class="share-band" data-share="home"><span><b>Знаете, кому нужна машина?</b>Отправьте VEZU другу — пригодится при переезде</span><em><svg><use href="#i-share"/></svg>Поделиться</em></button>
     </form>
@@ -255,7 +265,7 @@ card=head('Визитка водителя — ВЕЗУ','Грузоперево
       <div><h2 data-i18n="order">Быстрый заказ</h2><p class="sub" data-i18n="order_sub">Заполните — сообщение уйдёт водителю в WhatsApp.</p></div>
       <button type="button" class="info-btn" data-info="geo" data-i18n-aria="why_geo" aria-label="Что это?"><svg><use href="#i-info"/></svg></button>
     </div>
-{QCHIPS}{ORDER_FIELDS.replace('{ph_what}','Что везём?')}    <button class="btn btn-wa btn-block" type="submit"><svg><use href="#i-wa"/></svg><span data-i18n="send">Отправить заказ</span></button>
+{QCHIPS}{CITY_FIELDS}{ORDER_FIELDS.replace('{ph_what}','Что везём?')}    <button class="btn btn-wa btn-block" type="submit"><svg><use href="#i-wa"/></svg><span data-i18n="send">Отправить заказ</span></button>
   </form>
 
   <section class="panel glass rv-sec" id="reviews" hidden></section>
@@ -307,7 +317,15 @@ new=head('Создать визитку водителя — ВЕЗУ','Бесп
         </div>
         <label class="fld"><span>Имя *</span><input class="inp" name="n" maxlength="40" placeholder="Например: Ерлан" autocomplete="name" required></label>
         <label class="fld"><span>Номер WhatsApp *</span><input class="inp" name="p" type="tel" inputmode="tel" placeholder="+7 7__ ___ __ __" autocomplete="tel" required></label>
-        <label class="fld"><span>Город</span><input class="inp" name="t" list="cities" maxlength="40" placeholder="Алматы"></label>
+        <div class="fld city-f city-f-cab" data-city-pick data-city-name="t" data-city-required>
+          <span class="cargo-h">Ваш город *</span>
+          <p class="fine">В ленте и в Telegram будут заказы только этого города. Без города общие заказы не приходят.</p>
+          <div class="qchips city-chips" role="group" aria-label="Город"></div>
+          <input type="hidden" name="t" value="">
+          <label class="fld city-other" hidden><span>Название города</span><input class="inp" name="t_other" maxlength="40" placeholder="Например: Темиртау"></label>
+          <button type="button" class="lnk city-gps" data-city-gps>Определить город по геопозиции</button>
+          <p class="fine city-gps-msg" data-city-gps-msg hidden></p>
+        </div>
         <details class="more">
           <summary>Ещё (необязательно)</summary>
           <div class="f">
@@ -317,7 +335,7 @@ new=head('Создать визитку водителя — ВЕЗУ','Бесп
             <label class="fld"><span>Коротко о себе <em class="counter" id="cnt">0/80</em></span><textarea class="inp" name="m" maxlength="80" rows="2" placeholder="Аккуратно, без опозданий."></textarea></label>
           </div>
         </details>
-        <p class="err-msg" id="err1" hidden>Укажите имя и номер WhatsApp — это всё, что нужно.</p>
+        <p class="err-msg" id="err1" hidden>Укажите имя, номер WhatsApp и город.</p>
         <button type="button" class="btn btn-grad btn-block" data-next="2">Далее<svg><use href="#i-arrow"/></svg></button>
       </section>
 
@@ -544,21 +562,21 @@ app=head('Заказ перевозки — ВЕЗУ','Опишите груз �
     <h1>Новый <span class="grad-text">заказ</span></h1>
     <button type="button" class="share-band" data-share="app"><span><b>Знаете, кому нужна машина?</b>Отправьте VEZU другу — пригодится при переезде</span><em><svg><use href="#i-share"/></svg>Поделиться</em></button>
     <form class="panel glass f" id="nord" novalidate>
-{TPL}{QCHIPS}{ORDER_FIELDS.replace('{ph_what}','Что везём? Например: диван и 10 коробок')}      <label class="fld"><span>Точная дата и время (необязательно)</span><input class="inp" name="at" type="datetime-local"></label>
+{TPL}{QCHIPS}{CITY_FIELDS}{ORDER_FIELDS.replace('{ph_what}','Что везём? Например: диван и 10 коробок')}      <label class="fld"><span>Точная дата и время (необязательно)</span><input class="inp" name="at" type="datetime-local"></label>
       <label class="fld"><span>Комментарий</span><input class="inp" name="note" maxlength="300" placeholder="Подъезд со двора, нужен домофон…"></label>
       <div class="row2">
         <label class="fld"><span>Ваше имя</span><input class="inp" name="cn" maxlength="30" placeholder="Имя" autocomplete="given-name"></label>
         <label class="fld"><span>Телефон *</span><input class="inp" name="cp" type="tel" inputmode="tel" placeholder="+7 7__ ___ __ __" autocomplete="tel"></label>
       </div>
       <div class="fld"><span>Кому отправить</span>
-        <div class="qchips" data-tg><button type="button" class="qchip on" data-t="all">Всем свободным водителям</button><button type="button" class="qchip" data-t="fav">Только избранным</button><button type="button" class="qchip" data-t="pick">Выбрать водителей</button></div>
+        <div class="qchips" data-tg><button type="button" class="qchip on" data-t="all">Всем водителям этого города</button><button type="button" class="qchip" data-t="fav">Только избранным</button><button type="button" class="qchip" data-t="pick">Выбрать водителей</button></div>
       </div>
       <div id="tgl" class="tg-list"></div>
       <label class="consent"><input type="checkbox" data-consent="order"><span>Мне 18+. Согласен на обработку имени, телефона и данных заказа, чтобы передать заказ выбранным водителям, по <a href="privacy.html" target="_blank" rel="noopener">Политике конфиденциальности</a>. Телефон увидит только водитель, которого я выберу. Пока данные хранятся у Supabase (Германия, ЕС).</span></label>
       <p class="err-msg" id="oerr" hidden></p>
       <button type="button" class="btn btn-grad btn-lg btn-block" id="osend"><svg><use href="#i-feed"/></svg>Отправить водителям</button>
       <button class="btn btn-wa btn-block" type="submit"><svg><use href="#i-wa"/></svg>Или сразу в WhatsApp ВЕЗУ</button>
-      <p class="fine">Телефон не публикуется: его увидит только водитель, которого вы выберете. Заказ закрывается через 24 часа или когда вы выберете водителя. <a href="privacy.html">Конфиденциальность</a></p>
+      <p class="fine">Телефон не публикуется: его увидит только водитель, которого вы выберете. Заказ живёт 24 часа. Когда вы подтвердите водителя, заказ останется в ленте со статусом «В работе» и договорной ценой — без вашего телефона. <a href="privacy.html">Конфиденциальность</a></p>
     </form>
   </section>
   <section data-tab="favs" hidden>

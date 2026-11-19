@@ -20,8 +20,10 @@
   function route(o) { return '<p class="o-route"><i class="dot d1"></i>' + esc(o.from || '—') + '<br><i class="dot d2"></i>' + esc(o.to || '—') + '</p>'; }
   function facts(o) {
     var c = o.calc || {}, a = [];
+    if (o.city) a.push('📍 ' + o.city);
     if (when(o)) a.push('🕑 ' + when(o));
     if (c.km) a.push(c.km + ' км' + (c.inter ? ' · межгород' : ''));
+    if (o.agreed) a.push('цена: ' + V.fmtNum(o.agreed) + ' ₸');
     if (c.loaders) a.push('грузчики: ' + c.loaders);
     if (c.floors) a.push('этажи без лифта: ' + c.floors);
     if (c.price) a.push('цена клиента: ' + V.fmtNum(c.price) + ' ₸');
@@ -62,7 +64,7 @@
     var box = $('#tgl'), favs = F.list();
     var fb = form.querySelector('[data-t=fav]'); if (fb) fb.disabled = !favs.length;
     if (target === 'fav' && !favs.length) target = 'all';
-    if (target === 'all') { box.innerHTML = '<p class="fine">Заказ увидят все водители ВЕЗУ в «Ленте». Ваш телефон увидит только водитель, которого вы выберете.</p>'; return; }
+    if (target === 'all') { box.innerHTML = '<p class="fine">Заказ увидят водители выбранного города в «Ленте». Ваш телефон увидит только водитель, которого вы выберете.</p>'; return; }
     var rows = target === 'fav' ? favs : favs.concat((catRows || []).filter(function (r) { return !F.has(r.slug); }));
     if (target === 'pick' && !catRows) {
       catRows = [];
@@ -82,7 +84,7 @@
     var err = $('#oerr'); err.hidden = true;
     var g = function (n) { var i = form.querySelector('[name=' + n + ']'); return i ? i.value.trim() : ''; };
     var phone = V.normPhone(g('cp'));
-    var o = { what: g('what'), cargo: g('cargo'), from: g('from'), to: g('to'), when: g('when'), note: g('note'), name: g('cn'), phone: phone || '' };
+    var o = { what: g('what'), cargo: g('cargo'), from: g('from'), to: g('to'), when: g('when'), note: g('note'), name: g('cn'), phone: phone || '', city: (V.normCity ? V.normCity(g('city') || g('city_other')) : g('city')) };
     var at = g('at'); if (at) { var d = new Date(at); if (!isNaN(d)) o.when_at = d.toISOString(); }
     var c = form._calc ? JSON.parse(JSON.stringify(form._calc)) : {}; delete c.how;
     var pr = +g('price').replace(/\D/g, ''); if (pr) c.price = pr;
@@ -90,6 +92,7 @@
     o.calc = c;
     var fail = function (t) { err.textContent = t; err.hidden = false; err.scrollIntoView({ block: 'center', behavior: 'smooth' }); };
     if (!o.what && !o.from) return fail('Напишите, что везём и откуда.');
+    if (!o.city) return fail('Выберите город заказа — заказ увидят водители этого города.');
     if (!phone) return fail('Укажите телефон — его увидит только водитель, которого вы выберете.');
     var slugs = target === 'all' ? null : target === 'fav' ? F.list().map(function (f) { return f.slug; }) : Object.keys(picked);
     if (slugs && !slugs.length) return fail('Отметьте хотя бы одного водителя.');
@@ -144,16 +147,17 @@
   });
 
   // ---------- мои заказы ----------
-  var LABEL = { open: 'Отправлен', resp: 'Водитель откликнулся', taken: 'Взят', cancelled: 'Отменён', expired: 'Истёк' };
+  var LABEL = { open: 'Отправлен', resp: 'Есть отклики', taken: 'В работе', done: 'Выполнен', cancelled: 'Отменён', expired: 'Истёк' };
   function stateOf(o) { return o.state === 'open' && o.responses.length ? 'resp' : o.state; }
-  function respHtml(o, r) {
+  function respWhen(r) { return r.at ? ago(r.at) : ''; }
+  function respHtml(o, r, i) {
     var chosen = o.taken === r.slug;
-    return '<div class="resp' + (chosen ? ' chosen' : '') + '"><a class="resp-h" href="' + esc(C.shortUrl(r.slug)) + '"><i class="cat-av">' + (r.photo ? '<img src="' + esc(C.photoUrl(r.photo)) + '" alt="" onerror="this.remove()">' : '') + '<b>' + esc(V.initials(r.n)) + '</b></i>' +
-      '<span><b>' + esc(r.n) + (r.v ? ' <em class="vf-b">✓ Проверен</em>' : '') + (chosen ? ' · выбран' : '') + '</b><small>' + esc([r.c, r.w].filter(Boolean).join(' · ')) + (V.reviewsOn() && r.rating && r.rating.n ? ' · ★ ' + String(r.rating.avg).replace('.', ',') : '') + '</small></span>' +
-      (r.price ? '<em class="resp-p"><small>могу за</small>' + V.fmtNum(r.price) + ' ₸' + (r.best ? '<i class="resp-best">дешевле всех</i>' : '') + '</em>' : '<em class="resp-p resp-np"><small>цена</small>договорная</em>') + '</a>' +
+    return '<div class="resp' + (chosen ? ' chosen' : '') + '"><div class="resp-pos"><b>#' + (i + 1) + '</b><small>' + esc(respWhen(r) || 'очередь') + '</small></div><a class="resp-h" href="' + esc(C.shortUrl(r.slug)) + '"><i class="cat-av">' + (r.photo ? '<img src="' + esc(C.photoUrl(r.photo)) + '" alt="" onerror="this.remove()">' : '') + '<b>' + esc(V.initials(r.n)) + '</b></i>' +
+      '<span><b>' + esc(r.n) + (r.v ? ' <em class="vf-b">✓ Проверен</em>' : '') + (chosen ? ' · выбран' : '') + (i === 0 && o.state === 'open' ? ' · первый отклик' : '') + '</b><small>' + esc([r.c, r.w].filter(Boolean).join(' · ')) + (V.reviewsOn() && r.rating && r.rating.n ? ' · ★ ' + String(r.rating.avg).replace('.', ',') : '') + '</small></span>' +
+      (r.price ? '<em class="resp-p"><small>могу за</small>' + V.fmtNum(r.price) + ' ₸</em>' : '<em class="resp-p resp-np"><small>цена</small>договорная</em>') + '</a>' +
       (r.comment ? '<p class="resp-c">«' + esc(r.comment) + '»</p>' : '') +
       '<div class="resp-b"><a class="btn btn-wa btn-sm" href="#" data-wa="' + esc(r.p) + '" data-n="' + esc(r.n) + '"><svg><use href="#i-wa"/></svg>WhatsApp</a><a class="btn btn-glass btn-sm" href="tel:+' + esc(r.p) + '"><svg><use href="#i-phone"/></svg>Звонок</a>' +
-      (o.state === 'open' ? '<button type="button" class="btn btn-grad btn-sm" data-pick="' + esc(r.slug) + '" data-o="' + o.id + '">Выбрать' + (r.price ? ' за ' + V.fmtNum(r.price) + ' ₸' : '') + '</button>' : '') + '</div></div>';
+      (o.state === 'open' ? '<button type="button" class="btn btn-grad' + (o.responses.length === 1 ? '' : '') + ' btn-block btn-confirm" data-pick="' + esc(r.slug) + '" data-o="' + o.id + '">Подтвердить заказ' + (r.price ? ' за ' + V.fmtNum(r.price) + ' ₸' : '') + '</button>' : '') + '</div></div>';
   }
   var lastOrders = null;
   function loadOrders(quiet) {
@@ -162,12 +166,9 @@
     if (!C.ls('vezu-otok')) { lastOrders = []; return drawOrders(); }
     C.rpc('vz_my_orders', { p_dev: dev() }).then(function (a) { lastOrders = a || []; drawOrders(); seenOrders(); }, function (e) { if (!quiet) box.innerHTML = '<p class="err-msg">' + esc(e.message) + '</p>'; });
   }
-  // предложения «Могу за X ₸»: сначала с ценой (дешевле выше), потом без цены
+  // очередь откликов: кто откликнулся раньше — выше (как пришло на сервер)
   function offers(o) {
-    var a = o.responses.slice().sort(function (x, y) { return (x.price || 1e12) - (y.price || 1e12); });
-    var priced = a.filter(function (r) { return r.price; });
-    a.forEach(function (r) { r.best = priced.length > 1 && r === priced[0] && r.price < priced[1].price; });
-    return a;
+    return (o.responses || []).slice().sort(function (x, y) { return new Date(x.at || 0) - new Date(y.at || 0); });
   }
   function drawOrders() {
     var a = lastOrders || [], box = $('#ordl');
@@ -176,24 +177,37 @@
       return '<article class="ord glass st-o-' + s + '"><div class="ord-h"><span class="ost ost-' + s + '">' + LABEL[s] + (s === 'resp' ? ' · ' + o.responses.length : '') + '</span><span class="muted">' + esc(ago(o.at)) + '</span></div>' +
         '<h3>' + cargoTag(o) + esc(o.what || V.cargoLabel(o.cargo) || 'Перевозка') + '</h3>' + route(o) + facts(o) + (est(o.calc) ? '<p class="o-est">' + est(o.calc) + '</p>' : '') +
         (o.scope === 'picked' ? '<p class="fine">Только для: ' + esc((o.targets || []).join(', ')) + '</p>' : '') +
-        (o.responses.length ? (o.state === 'open' && o.responses.length > 1 ? '<p class="fine">Предложения водителей — от дешёвых к дорогим. Выберите одного: заказ закроется для остальных, откроется WhatsApp.</p>' : '') + offers(o).map(function (r) { return respHtml(o, r); }).join('') : o.state === 'open' ? '<p class="muted wait">Ждём отклики водителей… Страница обновляется сама.</p>' : '') +
-        (V.reviewsOn() && o.state === 'taken' && !o.review_issued ? '<button type="button" class="btn btn-glass btn-block" data-rev="' + o.id + '"><svg><use href="#i-star"/></svg>Оставить отзыв водителю</button>' : '') +
+        (o.agreed ? '<p class="o-agreed">Договорная цена: <b>' + V.fmtNum(o.agreed) + ' ₸</b></p>' : '') +
+        (o.responses.length ? (o.state === 'open' ? '<p class="fine">Отклики в порядке очереди: кто откликнулся первым — сверху. Когда договоритесь, нажмите «Подтвердить заказ» и укажите цену. Заказ перейдёт в статус «В работе».</p>' : '') + offers(o).map(function (r, i) { return respHtml(o, r, i); }).join('') : o.state === 'open' ? '<p class="muted wait">Ждём отклики водителей… Страница обновляется сама.</p>' : '') +
+        (o.state === 'taken' ? '<button type="button" class="btn btn-glass btn-block" data-done="' + o.id + '">Отметить выполненным</button>' : '') +
+        (V.reviewsOn() && (o.state === 'taken' || o.state === 'done') && !o.review_issued ? '<button type="button" class="btn btn-glass btn-block" data-rev="' + o.id + '"><svg><use href="#i-star"/></svg>Оставить отзыв водителю</button>' : '') +
         (o.state === 'open' || o.state === 'taken' ? '<button type="button" class="lnk" data-cancel="' + o.id + '">Отменить заказ</button>' : '') + '</article>';
     }).join('') : '<div class="empty glass"><h2>Заказов пока нет</h2><p class="muted">Опишите груз — водители ответят здесь со своей ценой.</p><a class="btn btn-grad" href="#order">Новый заказ</a></div>';
   }
   $('#ordl').addEventListener('click', function (e) {
-    var b = e.target.closest('[data-pick],[data-cancel],[data-rev],[data-wa]'); if (!b) return;
+    var b = e.target.closest('[data-pick],[data-cancel],[data-rev],[data-wa],[data-done]'); if (!b) return;
     e.preventDefault();
     if (b.dataset.wa) return V.openWA(b.dataset.wa, 'Здравствуйте, ' + b.dataset.n.split(' ')[0] + '! Это по моему заказу в ВЕЗУ.');
     if (b.dataset.pick) {
-      if (!confirm('Выбрать этого водителя? Заказ закроется для остальных.')) return;
       var po = (lastOrders || []).filter(function (x) { return String(x.id) === String(b.dataset.o); })[0],
         pr = po && po.responses.filter(function (x) { return x.slug === b.dataset.pick; })[0];
-      C.rpc('vz_order_pick', { p_dev: dev(), p_id: b.dataset.o, p_slug: b.dataset.pick }).then(function () {
-        V.toast('Готово! Открываю WhatsApp водителя'); loadOrders();
-        if (pr && pr.p) V.openWA(pr.p, 'Здравствуйте, ' + String(pr.n || '').split(' ')[0] + '! Выбрал(а) вас в ВЕЗУ: ' + (po.what || V.cargoLabel(po.cargo) || 'перевозка') +
-          (po.from ? ', ' + po.from : '') + (po.to ? ' → ' + po.to : '') + (pr.price ? '. Ваша цена: ' + V.fmtNum(pr.price) + ' ₸' : '') + '. Когда сможете?');
-      }, function (er) { V.toast(er.message); });
+      if (!po || !pr) return;
+      var sh = V.sheet('Подтвердить заказ', '<p class="muted">Водитель <b>' + esc(pr.n) + '</b>' + (pr.price ? ' предложил ' + V.fmtNum(pr.price) + ' ₸' : ' откликнулся без цены') + '. Укажите договорённую цену и подтвердите. Заказ перейдёт в «В работе», другие водители больше не смогут откликнуться.</p>' +
+        '<label class="fld"><span>Договорённая цена</span><input class="inp" name="ap" inputmode="numeric" placeholder="' + (pr.price ? V.fmtNum(pr.price) : '10 000') + '" value="' + (pr.price ? V.fmtNum(pr.price) : '') + '"><b class="suffix">₸</b></label>' +
+        '<button type="button" class="btn btn-grad btn-lg btn-block" data-go>Подтвердить заказ</button>', 'confirm-sheet');
+      var ap = sh.el.querySelector('[name=ap]');
+      ap.addEventListener('input', function () { ap.value = V.fmtNum(ap.value.replace(/\D/g, '').slice(0, 8)); });
+      sh.el.querySelector('[data-go]').addEventListener('click', function () {
+        var price = +ap.value.replace(/\D/g, '') || null;
+        C.rpc('vz_order_pick', { p_dev: dev(), p_id: po.id, p_slug: pr.slug, p_price: price }).then(function () {
+          sh.close(); V.toast('Заказ в работе. Можно написать водителю в WhatsApp'); loadOrders();
+          if (pr.p) V.openWA(pr.p, 'Здравствуйте, ' + String(pr.n || '').split(' ')[0] + '! Подтверждаю заказ в ВЕЗУ: ' + (po.what || V.cargoLabel(po.cargo) || 'перевозка') +
+            (po.from ? ', ' + po.from : '') + (po.to ? ' → ' + po.to : '') + (price ? '. Цена: ' + V.fmtNum(price) + ' ₸' : '') + '. Когда сможете?');
+        }, function (er) { V.toast(er.message); });
+      });
+    } else if (b.dataset.done) {
+      if (!confirm('Отметить заказ выполненным?')) return;
+      C.rpc('vz_order_finish', { p_dev: dev(), p_id: b.dataset.done }).then(function () { V.toast('Заказ выполнен'); loadOrders(); }, function (er) { V.toast(er.message); });
     } else if (b.dataset.cancel) {
       if (!confirm('Отменить заказ?')) return;
       C.rpc('vz_order_cancel', { p_dev: dev(), p_id: b.dataset.cancel }).then(function () { loadOrders(); }, function (er) { V.toast(er.message); });
@@ -206,8 +220,12 @@
   var lastFeed = null, myCard = null, feedMeta = null;
   function proNote() {
     var m = feedMeta; if (!m || m.pro) return '';
-    return '<a class="pro-note glass" href="new.html#pro"><b>' + (m.later ? 'Ещё ' + m.later + ' ' + V.plural(m.later, 'новый заказ', 'новых заказа', 'новых заказов') + ' — ' + (m.later === 1 ? 'появится' : 'появятся') + ' у вас в течение 10 минут' : 'Новые заказы вы видите через 10 минут после публикации') +
+    return '<a class="pro-note glass" href="new.html#pro"><b>' + (m.later ? 'Ещё ' + m.later + ' ' + V.plural(m.later, 'новый заказ', 'новых заказа', 'новых заказов') + ' в вашем городе — ' + (m.later === 1 ? 'появится' : 'появятся') + ' у вас в течение 10 минут' : 'Новые заказы вашего города вы видите через 10 минут после публикации') +
       '</b><span>С «Про» — сразу, и в Telegram тоже первым. Подключить →</span></a>';
+  }
+  function cityNeed() {
+    var m = feedMeta; if (!m || !m.needs_city) return '';
+    return '<div class="empty glass city-need"><h2>Укажите свой город</h2><p class="muted">Лента показывает только заказы вашего города. Сейчас город в визитке не выбран — общие заказы скрыты. Личные заказы (когда клиент выбрал вас) будут видны.</p><a class="btn btn-grad" href="new.html">Выбрать город в кабинете</a></div>';
   }
   function loadFeed(quiet) {
     var box = $('#feedl');
@@ -219,26 +237,34 @@
   }
   function drawFeed() {
     var a = lastFeed || [], box = $('#feedl');
-    box.innerHTML = proNote() + (a.length ? a.map(function (o) {
-      var tag = o.mine ? '<span class="ost ost-taken">Клиент выбрал вас</span>' : o.personal ? '<span class="ost ost-me">Лично вам</span>' : '<span class="ost">Всем водителям</span>';
+    box.innerHTML = cityNeed() + proNote() + (a.length ? a.map(function (o) {
+      var tag = o.status === 'done' ? '<span class="ost ost-done">Выполнен' + (o.agreed ? ' · ' + V.fmtNum(o.agreed) + ' ₸' : '') + '</span>'
+        : o.status === 'taken' ? '<span class="ost ost-taken">' + (o.mine ? 'Ваш заказ в работе' : 'В работе') + (o.agreed ? ' · ' + V.fmtNum(o.agreed) + ' ₸' : '') + '</span>'
+        : o.mine ? '<span class="ost ost-taken">Клиент выбрал вас</span>' : o.personal ? '<span class="ost ost-me">Лично вам</span>' : '<span class="ost">Город: ' + esc(o.city || '—') + '</span>';
       var ml = mapLink(o.calc);
-      return '<article class="ord glass' + (o.personal ? ' personal' : '') + (o.mine ? ' mine' : '') + '"><div class="ord-h">' + tag + '<span class="muted">' + esc(ago(o.at)) + (o.responses ? ' · откликов: ' + o.responses : '') + '</span></div>' +
+      return '<article class="ord glass' + (o.personal ? ' personal' : '') + (o.mine ? ' mine' : '') + (o.status === 'taken' ? ' in-work' : '') + (o.status === 'done' ? ' is-done' : '') + '"><div class="ord-h">' + tag + '<span class="muted">' + esc(ago(o.at)) + (o.responses ? ' · откликов: ' + o.responses : '') + '</span></div>' +
         '<h3>' + cargoTag(o) + esc(o.what || V.cargoLabel(o.cargo) || 'Перевозка') + '</h3>' + route(o) + facts(o) + (est(o.calc) ? '<p class="o-est">Калькулятор: ' + est(o.calc) + '</p>' : '') +
         (o.note ? '<p class="resp-c">' + esc(o.note) + '</p>' : '') +
         (o.phone ? '<p class="fine">Клиент: ' + esc(o.name || 'без имени') + ' · +' + esc(o.phone) + '</p>' : '<p class="fine">' + (o.my ? 'Телефон появится, когда клиент выберет вас. Клиент видит ваш отклик и может написать вам в WhatsApp.' : 'Телефон клиента увидит только водитель, которого клиент выберет.') + '</p>') +
         (ml ? '<a class="lnk" href="' + esc(ml) + '" target="_blank" rel="noopener">Маршрут на карте</a>' : '') +
         (o.my ? '<p class="my-resp">Ваше предложение: ' + (o.my.price ? 'могу за ' + V.fmtNum(o.my.price) + ' ₸' : 'без цены') + (o.my.comment ? ' · ' + esc(o.my.comment) : '') + '</p>' : '') +
         '<div class="resp-b">' + (o.phone ? '<a class="btn btn-wa btn-sm" href="#" data-wa="' + esc(o.phone) + '" data-id="' + o.id + '"><svg><use href="#i-wa"/></svg>WhatsApp</a><a class="btn btn-glass btn-sm" href="tel:+' + esc(o.phone) + '"><svg><use href="#i-phone"/></svg>Звонок</a>' : '') +
-        (o.status === 'open' ? '<button type="button" class="btn ' + (o.my ? 'btn-glass' : 'btn-grad') + ' btn-sm" data-take="' + o.id + '">' + (o.my ? 'Изменить цену' : 'Могу за … ₸') + '</button>' : '') + '</div></article>';
-    }).join('') : '<div class="empty glass"><h2>Пока заказов нет</h2><p class="muted">Новые заказы появятся здесь сами — лента обновляется каждые 20 секунд. Поставьте статус «Свободен», чтобы клиенты видели вас первым.</p></div>');
+        (o.status === 'open' ? '<button type="button" class="btn ' + (o.my ? 'btn-glass' : 'btn-grad') + ' btn-sm" data-take="' + o.id + '">' + (o.my ? 'Изменить цену' : 'Могу за … ₸') + '</button>' : '') +
+        (o.mine && o.status === 'taken' ? '<button type="button" class="btn btn-glass btn-sm" data-finish="' + o.id + '">Отметить выполненным</button>' : '') + '</div></article>';
+    }).join('') : (feedMeta && feedMeta.needs_city ? '' : '<div class="empty glass"><h2>Пока заказов' + (feedMeta && feedMeta.city ? ' в городе «' + esc(feedMeta.city) + '»' : '') + ' нет</h2><p class="muted">Здесь появляются только заказы вашего города. Лента обновляется каждые 20 секунд. Поставьте статус «Свободен», чтобы клиенты видели вас первым.</p></div>'));
   }
   $('#feedst').addEventListener('click', function () {});
   if (CAB) CAB.bindStatus($('#feedst'), function (s) { if (myCard) myCard.status = s; });
   $('#feedl').addEventListener('click', function (e) {
-    var b = e.target.closest('[data-take],[data-wa]'); if (!b) return;
+    var b = e.target.closest('[data-take],[data-wa],[data-finish]'); if (!b) return;
     e.preventDefault();
-    var o = (lastFeed || []).filter(function (x) { return x.id === (b.dataset.take || b.dataset.id); })[0]; if (!o) return;
-    if (b.dataset.wa) return V.openWA(o.phone, 'Здравствуйте' + (o.name ? ', ' + o.name : '') + '! Я водитель с ВЕЗУ, по вашему заказу: ' + (o.what || 'перевозка') + (o.from ? ', ' + o.from : '') + (o.to ? ' → ' + o.to : '') + '.' + (o.my && o.my.price ? ' Цена: ' + V.fmtNum(o.my.price) + ' ₸.' : ''));
+    var o = (lastFeed || []).filter(function (x) { return x.id === (b.dataset.take || b.dataset.id || b.dataset.finish); })[0]; if (!o) return;
+    if (b.dataset.finish) {
+      if (!confirm('Отметить заказ выполненным?')) return;
+      C.rpc('vz_driver_finish', { p_key: C.key(), p_id: o.id }).then(function () { V.toast('Заказ выполнен'); loadFeed(); }, function (er) { V.toast(er.message); });
+      return;
+    }
+    if (b.dataset.wa) return V.openWA(o.phone, 'Здравствуйте' + (o.name ? ', ' + o.name : '') + '! Я водитель с ВЕЗУ, по вашему заказу: ' + (o.what || 'перевозка') + (o.from ? ', ' + o.from : '') + (o.to ? ' → ' + o.to : '') + '.' + (o.agreed ? ' Цена: ' + V.fmtNum(o.agreed) + ' ₸.' : (o.my && o.my.price ? ' Цена: ' + V.fmtNum(o.my.price) + ' ₸.' : '')));
     var sug = o.calc && o.calc.lo ? [o.calc.lo, Math.round((o.calc.lo + (o.calc.hi || o.calc.lo)) / 2 / 500) * 500, o.calc.hi].filter(function (v, i, a) { return v && a.indexOf(v) === i; }) : [];
     var s = V.sheet('Могу за … ₸', '<p class="muted">' + esc(o.what || V.cargoLabel(o.cargo) || 'Перевозка') + '</p>' +
       (sug.length ? '<div class="qchips">' + sug.map(function (v) { return '<button type="button" class="qchip" data-sug="' + v + '">' + V.fmtNum(v) + ' ₸</button>'; }).join('') + '</div><p class="fine">Подсказки — из примерного расчёта клиента. Ставьте свою цену.</p>' : '') +

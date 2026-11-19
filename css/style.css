@@ -722,3 +722,24 @@ ol.inst{padding-left:22px;display:grid;gap:8px;margin:4px 0 0}
 ol.inst li{color:var(--ink)}
 @media (display-mode:standalone){[data-install],#install{display:none!important}}
 @media (max-width:440px){.topnav{gap:6px}.topnav .btn-sm{padding-left:10px;padding-right:10px}.inst-top{width:36px;--h:36px}}
+
+/* Выбор города заказа / визитки */
+.city-f{display:flex;flex-direction:column;gap:8px}
+.city-f .cargo-h{font-weight:700}
+.city-chips{display:flex;flex-wrap:wrap;gap:8px}
+.city-chips .qchip{min-height:44px;padding:8px 14px;font-size:15px}
+.city-f.bad{outline:2px solid #ff8f70;outline-offset:6px;border-radius:16px}
+.city-gps{align-self:flex-start;background:none;border:0;color:var(--acc, #8f7cff);font:inherit;font-weight:600;cursor:pointer;padding:0}
+.city-gps:disabled{opacity:.6}
+.city-need{margin-bottom:14px}
+@media (max-width:390px){.city-chips .qchip{min-height:48px;font-size:14px}}
+
+.resp{position:relative;padding-top:8px}
+.resp-pos{display:flex;align-items:baseline;gap:8px;margin:0 0 6px}
+.resp-pos b{font-size:13px;color:var(--acc,#8f7cff)}
+.resp-pos small{color:var(--mute,rgba(255,255,255,.55));font-size:12px}
+.btn-confirm{margin-top:8px;min-height:48px;font-size:16px}
+.o-agreed{font-weight:700;margin:.4em 0}
+.ost-done{background:rgba(79,209,255,.18);color:#c6f4ff}
+.ord.in-work{box-shadow:inset 0 0 0 1px rgba(143,124,255,.35)}
+.ord.is-done{opacity:.92}
