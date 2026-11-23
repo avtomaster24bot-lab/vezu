@@ -90,13 +90,9 @@
   document.getElementById('vcf').addEventListener('click', function () {
     V.addContact(d, url);
   });
-  // Установка на телефон: для коротких адресов — статический манифест <адрес>.webmanifest (Chrome надёжнее ставит
-  // приложение по настоящему файлу, чем по blob:), иначе — сгенерированный. Название приложения всегда VEZU.
-  if (cloud.slug) fetch(cloud.slug + '.webmanifest', { method: 'HEAD', cache: 'no-cache' }).then(function (r) {
-    if (!r.ok) throw 0;
-    var link = document.querySelector('link[rel=manifest]'); link.href = cloud.slug + '.webmanifest';
-  }).catch(function () { V.cardManifest(d, url); });
-  else V.cardUrlAsync(d).then(function (u) { url = u; V.cardManifest(d, url); });
+  // Один манифест на всё ВЕЗУ (manifest.webmanifest): установка с визитки ставит то же приложение
+  // (start_url = app.html). Отдельный манифест визитки (blob: или <slug>.webmanifest) Chrome на Android
+  // ставит только как ярлык браузера, без WebAPK.
   function showQR() {
     var s = V.sheet(V.t('qr_t'), '<p class="muted">' + V.esc(V.t('qr_s')) + '</p><div class="qr qr-big" id="qrsheet">' + V.qrSvg(url) + '</div>' +
       '<button type="button" class="btn btn-glass btn-block" id="qrcopy"><svg><use href="#i-link"/></svg>' + V.esc(V.t('copy')) + '</button>', 'sheet-qr');

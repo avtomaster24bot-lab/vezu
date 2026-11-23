@@ -3,23 +3,32 @@
   "short_name": "ВЕЗУ",
   "description": "Заказ грузоперевозки до 3 т, лента заказов и визитки водителей ВЕЗУ.",
   "id": "/vezu/",
-  "start_url": "./",
+  "start_url": "./app.html",
   "scope": "./",
   "display": "standalone",
-  "orientation": "portrait",
+  "orientation": "any",
   "background_color": "#06061a",
   "theme_color": "#06061a",
   "lang": "ru",
+  "dir": "ltr",
   "icons": [
     {
       "src": "icons/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "icons/icon-512.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "icons/maskable-512.png",
@@ -28,48 +37,68 @@
       "purpose": "maskable"
     }
   ],
+  "screenshots": [
+    {
+      "src": "icons/shot-narrow.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Заказ перевозки в ВЕЗУ"
+    },
+    {
+      "src": "icons/shot-wide.png",
+      "sizes": "1920x1080",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Заказ перевозки в ВЕЗУ"
+    }
+  ],
   "shortcuts": [
     {
       "name": "Заказать перевозку",
       "short_name": "Заказ",
-      "url": "app.html#order",
+      "url": "./app.html#order",
       "icons": [
         {
           "src": "icons/icon-192.png",
-          "sizes": "192x192"
+          "sizes": "192x192",
+          "type": "image/png"
         }
       ]
     },
     {
       "name": "Мои заказы",
       "short_name": "Мои заказы",
-      "url": "app.html#orders",
+      "url": "./app.html#orders",
       "icons": [
         {
           "src": "icons/icon-192.png",
-          "sizes": "192x192"
+          "sizes": "192x192",
+          "type": "image/png"
         }
       ]
     },
     {
       "name": "Мои водители",
       "short_name": "Водители",
-      "url": "app.html#favs",
+      "url": "./app.html#favs",
       "icons": [
         {
           "src": "icons/icon-192.png",
-          "sizes": "192x192"
+          "sizes": "192x192",
+          "type": "image/png"
         }
       ]
     },
     {
       "name": "Лента заказов (для водителей)",
       "short_name": "Лента",
-      "url": "app.html#feed",
+      "url": "./app.html#feed",
       "icons": [
         {
           "src": "icons/icon-192.png",
-          "sizes": "192x192"
+          "sizes": "192x192",
+          "type": "image/png"
         }
       ]
     }

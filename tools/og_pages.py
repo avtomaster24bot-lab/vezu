@@ -93,6 +93,8 @@ def page(c):
 <meta property="og:image:alt" content="{e(name)}">
 <meta name="twitter:card" content="{'summary' if iw == 256 else 'summary_large_image'}">
 <meta name="theme-color" content="#06061a">
+<link rel="manifest" href="/vezu/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/vezu/icons/apple-touch-icon.png">
 <style>body{{margin:0;min-height:100vh;display:grid;place-items:center;background:#06061a;color:#f2f1ff;font:16px/1.5 system-ui,sans-serif;text-align:center;padding:20px;box-sizing:border-box}}a{{color:#7fe7ff}}h1{{font-size:26px;margin:0 0 6px}}.b{{display:inline-block;margin-top:8px;padding:12px 22px;border-radius:14px;background:#25d366;color:#04210f;font-weight:700;text-decoration:none}}</style>
 <script>try{{sessionStorage.setItem('vezu-og-' + {js_slug}, JSON.stringify({js_data}));}}catch(e){{}}
 location.replace('card.html?u=' + {js_slug} + location.hash);</script>
@@ -126,17 +128,13 @@ def main():
         f = os.path.join(ROOT, c['slug'] + '.html')
         if os.path.exists(f) and c['slug'] not in old:
             print('skip (не наш файл):', c['slug']); continue
-        mf = os.path.join(ROOT, c['slug'] + '.webmanifest')
-        mbody = manifest(c['slug'])
-        if not os.path.exists(mf) or open(mf, encoding='utf-8').read() != mbody:
-            open(mf, 'w', encoding='utf-8').write(mbody)
         body = page(c)
         if not os.path.exists(f) or open(f, encoding='utf-8').read() != body:
             open(f, 'w', encoding='utf-8').write(body)
             print('write', c['slug'])
         new.add(c['slug'])
     for sl in sorted(old - new):
-        for ext in ('.html', '.webmanifest'):
+        for ext in ('.html',):
             f = os.path.join(ROOT, sl + ext)
             if SLUG.match(sl) and os.path.isfile(f):
                 os.remove(f); print('remove', sl + ext)

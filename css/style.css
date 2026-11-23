@@ -723,6 +723,11 @@ body:has(.app) .share-fab{display:none}
 ol.inst{padding-left:22px;display:grid;gap:8px;margin:4px 0 0}
 ol.inst li{color:var(--ink)}
 @media (display-mode:standalone){[data-install],#install{display:none!important}}
+.open-chrome-bar{position:sticky;top:0;z-index:80;display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px 12px;padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));background:#1c1648;color:#f2f1ff;font-size:13px;line-height:1.35;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+.open-chrome-bar span:first-child{flex:1 1 auto}
+.open-chrome-actions{display:flex;gap:6px;align-items:center;flex:0 0 auto}
+@media (display-mode:standalone){.open-chrome-bar{display:none!important}}
+
 @media (max-width:440px){.topnav{gap:6px}.topnav .btn-sm{padding-left:10px;padding-right:10px}.inst-top{width:36px;--h:36px}}
 
 /* Выбор города заказа / визитки */

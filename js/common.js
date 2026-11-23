@@ -39,11 +39,14 @@
       wah_open: 'Открыть WhatsApp', wah_copy: 'Скопировать номер', wah_web: 'Через сайт WhatsApp', wah_aria: 'WhatsApp не открылся', close: 'Закрыть',
       ios_install: 'На iPhone: нажмите «Поделиться» внизу экрана → «На экран „Домой“».',
       inst_t: 'Установить ВЕЗУ на телефон', inst_done: 'Готово! Иконка ВЕЗУ появилась на главном экране.',
-      inst_android: '<ol class="inst"><li>Нажмите <b>⋮</b> (три точки) вверху справа в Chrome.</li><li>Выберите <b>«Установить приложение»</b> или <b>«Добавить на главный экран»</b>.</li><li>Нажмите <b>«Установить»</b> — иконка ВЕЗУ появится на главном экране.</li></ol>',
+      inst_android: '<ol class="inst"><li>Откройте сайт в <b>Chrome</b> (не в Яндексе, Opera, Telegram или WhatsApp).</li><li>Нажмите <b>⋮</b> вверху справа и выберите <b>«Установить приложение»</b>.</li><li>Подтвердите <b>«Установить»</b> — на экране появится иконка ВЕЗУ без значка браузера.</li></ol><p class="fine">Если пункта «Установить приложение» нет: удалите старый ярлык ВЕЗУ, обновите страницу и попробуйте снова.</p>',
       inst_ios: '<ol class="inst"><li>Откройте сайт в <b>Safari</b>.</li><li>Нажмите <b>«Поделиться»</b> (квадрат со стрелкой) внизу экрана.</li><li>Выберите <b>«На экран „Домой“»</b> → <b>«Добавить»</b>.</li></ol>',
-      inst_inapp: '<ol class="inst"><li>Сайт открыт внутри Telegram/WhatsApp/Instagram — отсюда установить нельзя.</li><li>Нажмите <b>⋮</b> или <b>…</b> вверху и выберите <b>«Открыть в браузере»</b> (Chrome или Safari).</li><li>В браузере снова нажмите <b>«Установить на телефон»</b>.</li></ol>',
-      inst_desktop: '<ol class="inst"><li>В Chrome или Edge нажмите значок установки в адресной строке справа или меню <b>⋮</b> → <b>«Установить ВЕЗУ»</b>.</li><li>На телефоне откройте этот адрес в Chrome (Android) или Safari (iPhone).</li></ol>',
-      inst_why: 'Иконка на главном экране открывает ВЕЗУ за секунду, как приложение, и работает даже без интернета.',
+      inst_inapp: '<ol class="inst"><li>Сайт открыт внутри Telegram, WhatsApp или другого приложения — отсюда ставится только ярлык, не настоящее приложение.</li><li>Нажмите <b>«Открыть в Chrome»</b> ниже.</li><li>В Chrome: <b>⋮</b> → <b>«Установить приложение»</b>.</li></ol>',
+      inst_other: '<ol class="inst"><li>В этом браузере ВЕЗУ ставится только как ярлык со значком браузера.</li><li>Настоящее приложение (без значка браузера) ставится в <b>Chrome</b> или Samsung Internet.</li><li>Откройте сайт в Chrome, затем <b>⋮</b> → <b>«Установить приложение»</b>.</li></ol>',
+      inst_desktop: '<ol class="inst"><li>В Chrome или Edge нажмите значок установки в адресной строке справа или меню <b>⋮</b> → <b>«Установить ВЕЗУ»</b>.</li><li>На телефоне откройте этот адрес в <b>Chrome</b> (Android) и нажмите <b>⋮</b> → <b>«Установить приложение»</b>.</li></ol>',
+      inst_why: 'После установки иконка ВЕЗУ на главном экране открывает приложение целиком, без рамки браузера, и работает даже без интернета.',
+      inst_chrome: 'Открыть в Chrome',
+      inst_bar: 'Чтобы установить как приложение, откройте сайт в Chrome.',
       nf_t: 'Визитка не найдена', nf_s: 'Похоже, ссылка обрезана или скопирована не полностью. Попросите водителя прислать её ещё раз.', nf_new: 'Создать свою визитку', nf_home: 'На главную',
       sub_card: 'визитка водителя', qr_aria: 'QR-код визитки', details: 'Подробнее', made_by: 'Сделано на ВЕЗУ — сделай свою визитку', wa_short: 'WhatsApp', qr: 'QR-код', save: 'В контакты', why_geo: 'Что это?'
     },
@@ -70,11 +73,14 @@
       wah_open: 'WhatsApp ашу', wah_copy: 'Нөмірді көшіру', wah_web: 'WhatsApp сайты арқылы', wah_aria: 'WhatsApp ашылмады', close: 'Жабу',
       ios_install: 'iPhone-да: төмендегі «Бөлісу» батырмасын басыңыз → «Басты экранға».',
       inst_t: 'ВЕЗУ-ды телефонға орнату', inst_done: 'Дайын! ВЕЗУ белгішесі басты экранға шықты.',
-      inst_android: '<ol class="inst"><li>Chrome-да жоғарғы оң жақтағы <b>⋮</b> (үш нүкте) басыңыз.</li><li><b>«Қолданбаны орнату»</b> немесе <b>«Басты экранға қосу»</b> таңдаңыз.</li><li><b>«Орнату»</b> басыңыз — ВЕЗУ белгішесі басты экранда пайда болады.</li></ol>',
+      inst_android: '<ol class="inst"><li>Сайтты <b>Chrome</b>-да ашыңыз (Яндекс, Opera, Telegram, WhatsApp емес).</li><li>Жоғарғы оң жақтағы <b>⋮</b> басып, <b>«Қолданбаны орнату»</b> таңдаңыз.</li><li><b>«Орнату»</b> басыңыз — ВЕЗУ белгішесі браузер белгісінсіз шығады.</li></ol><p class="fine">«Қолданбаны орнату» жоқ болса: ескі ВЕЗУ жарлығын өшіріп, бетті жаңартып, қайта көріңіз.</p>',
       inst_ios: '<ol class="inst"><li>Сайтты <b>Safari</b>-де ашыңыз.</li><li>Төмендегі <b>«Бөлісу»</b> батырмасын басыңыз.</li><li><b>«Басты экранға»</b> → <b>«Қосу»</b> таңдаңыз.</li></ol>',
-      inst_inapp: '<ol class="inst"><li>Сайт Telegram/WhatsApp/Instagram ішінде ашық — мұнда орнату мүмкін емес.</li><li>Жоғарыдағы <b>⋮</b> немесе <b>…</b> басып, <b>«Браузерде ашу»</b> таңдаңыз.</li><li>Браузерде қайтадан <b>«Телефонға орнату»</b> басыңыз.</li></ol>',
-      inst_desktop: '<ol class="inst"><li>Chrome не Edge-де мекенжай жолындағы орнату белгішесін немесе <b>⋮</b> → <b>«ВЕЗУ орнату»</b> басыңыз.</li><li>Телефонда бұл мекенжайды Chrome (Android) не Safari (iPhone) арқылы ашыңыз.</li></ol>',
-      inst_why: 'Басты экрандағы белгіше ВЕЗУ-ды қосымша сияқты бір секундта ашады және интернетсіз де жұмыс істейді.',
+      inst_inapp: '<ol class="inst"><li>Сайт Telegram, WhatsApp немесе басқа қолданба ішінде ашық — мұнда тек жарлық қойылады.</li><li>Төмендегі <b>«Chrome-да ашу»</b> басыңыз.</li><li>Chrome-да: <b>⋮</b> → <b>«Қолданбаны орнату»</b>.</li></ol>',
+      inst_other: '<ol class="inst"><li>Бұл браузерде ВЕЗУ тек браузер белгішесі бар жарлық ретінде орнатылады.</li><li>Нағыз қолданба <b>Chrome</b> немесе Samsung Internet-те қойылады.</li><li>Сайтты Chrome-да ашып, <b>⋮</b> → <b>«Қолданбаны орнату»</b> басыңыз.</li></ol>',
+      inst_desktop: '<ol class="inst"><li>Chrome не Edge-де мекенжай жолындағы орнату белгішесін немесе <b>⋮</b> → <b>«ВЕЗУ орнату»</b> басыңыз.</li><li>Телефонда бұл мекенжайды <b>Chrome</b> (Android) арқылы ашып, <b>⋮</b> → <b>«Қолданбаны орнату»</b> басыңыз.</li></ol>',
+      inst_why: 'Орнатқаннан кейін басты экрандағы ВЕЗУ белгішесі қолданбаны браузер жақтауынсыз ашады және интернетсіз де жұмыс істейді.',
+      inst_chrome: 'Chrome-да ашу',
+      inst_bar: 'Қолданба ретінде орнату үшін сайтты Chrome-да ашыңыз.',
       nf_t: 'Визитка табылмады', nf_s: 'Сілтеме толық көшірілмеген сияқты. Жүргізушіден оны қайта жіберуін сұраңыз.', nf_new: 'Өз визиткаңызды жасау', nf_home: 'Басты бет',
       sub_card: 'жүргізуші визиткасы', qr_aria: 'Визитканың QR-коды', details: 'Толығырақ', made_by: 'ВЕЗУ-да жасалған — өз визиткаңды жаса', wa_short: 'WhatsApp', qr: 'QR-код', save: 'Контактілерге', why_geo: 'Бұл не?'
     }
@@ -290,6 +296,22 @@
   function inAppBrowser() {
     return !!(window.TelegramWebviewProxy || window.TelegramWebview || window.TelegramWebviewProxyProto ||
       /Telegram|FBAN|FBAV|FB_IAB|FBIOS|Instagram|Line\/|MicroMessenger|VKClient|OKApp|; wv\)/i.test(UA));
+  }
+  function isWebApkBrowser() {
+    if (!IS_ANDROID || inAppBrowser()) return false;
+    if (/SamsungBrowser/i.test(UA)) return true;
+    if (/YaBrowser|YaApp|YaSearch|OPR\/|Opera|EdgA|Edg\/|UCBrowser|MiuiBrowser|Mint Browser|HeyTap|Brave|DuckDuckGo|Puffin|Focus/i.test(UA)) return false;
+    return /Chrome\//i.test(UA);
+  }
+  function appStartUrl() {
+    try { return new URL('app.html', document.baseURI || (location.origin + location.pathname.replace(/[^/]*$/, ''))).href; }
+    catch (e) { return location.origin + '/vezu/app.html'; }
+  }
+  function chromeIntent(url) {
+    var href = url || appStartUrl(), u;
+    try { u = new URL(href, location.href); } catch (e) { u = location; }
+    var path = u.host + u.pathname + u.search + u.hash;
+    return 'intent://' + path + '#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=' + encodeURIComponent(u.href) + ';end';
   }
   function waQuery(phone, text) {
     var p = normPhone(phone), q = [];
@@ -932,22 +954,27 @@
   }
 
   // ---------- PWA ----------
-  // Кнопка «Установить на телефон» видна всегда (кроме уже установленного приложения):
-  // есть beforeinstallprompt — показываем системное окно, нет — короткую инструкцию.
+  // Кнопка «Установить на телефон»: есть beforeinstallprompt — системное окно WebAPK;
+  // нет — инструкция «Chrome → ⋮ → Установить приложение». В Telegram/WhatsApp — ссылка intent:// в Chrome.
   var installEvt = null, installBtns = [];
   function standalone() { return (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true; }
   function syncInstall() { var hide = standalone(); installBtns.forEach(function (b) { b.hidden = hide; }); }
   window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); installEvt = e; syncInstall(); });
   window.addEventListener('appinstalled', function () { installEvt = null; toast(t('inst_done'), 4000); });
+  function chromeBtn() {
+    if (!IS_ANDROID || standalone()) return '';
+    return '<p style="margin-top:14px"><a class="btn btn-grad btn-block" href="' + chromeIntent() + '">' + t('inst_chrome') + '</a></p>';
+  }
   function installHelp() {
-    var k = inAppBrowser() ? 'inst_inapp' : IS_IOS ? 'inst_ios' : IS_ANDROID ? 'inst_android' : 'inst_desktop';
-    return sheet(t('inst_t'), t(k) + '<p class="muted" style="margin-top:12px">' + t('inst_why') + '</p>', 'sheet-info');
+    var k = inAppBrowser() ? 'inst_inapp' : IS_IOS ? 'inst_ios' : (IS_ANDROID && !isWebApkBrowser()) ? 'inst_other' : IS_ANDROID ? 'inst_android' : 'inst_desktop';
+    return sheet(t('inst_t'), t(k) + chromeBtn() + '<p class="muted" style="margin-top:12px">' + t('inst_why') + '</p>', 'sheet-info');
   }
   function doInstall() {
+    if (inAppBrowser() || (IS_ANDROID && !isWebApkBrowser())) return installHelp();
     if (installEvt) {
-      var ev = installEvt; installEvt = null;
+      var ev = installEvt;
       ev.prompt();
-      ev.userChoice.then(function (c) { if (c && c.outcome !== 'accepted') installEvt = null; }, function () {});
+      ev.userChoice.then(function (c) { if (c && c.outcome === 'accepted') installEvt = null; }, function () {});
     } else installHelp();
   }
   function bindInstall(btn) {
@@ -956,30 +983,31 @@
     btn.hidden = standalone();
     btn.addEventListener('click', function (e) { e.preventDefault(); doInstall(); });
   }
-  function bindAllInstall() { document.querySelectorAll('[data-install], #install').forEach(bindInstall); }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindAllInstall); else bindAllInstall();
-  // Свой манифест для визитки: установленная иконка открывает именно эту визитку
-  function cardManifest(d, url) {
-    var base = baseUrl();
-    var m = {
-      name: 'VEZU', short_name: 'VEZU', description: (d.n || 'Водитель') + ' — грузоперевозки',   // название приложения всегда VEZU
-      id: url, start_url: url, scope: base, display: 'standalone', background_color: '#06061a', theme_color: '#06061a', lang: 'ru',
-      icons: [{ src: base + 'icons/icon-192.png', sizes: '192x192', type: 'image/png' }, { src: base + 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },
-        { src: base + 'icons/maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }]
-    };
-    var link = document.querySelector('link[rel=manifest]');
-    if (!link) { link = document.createElement('link'); link.rel = 'manifest'; document.head.appendChild(link); }
-    link.href = URL.createObjectURL(new Blob([JSON.stringify(m)], { type: 'application/manifest+json' }));
+  function showOpenChromeBar() {
+    if (!inAppBrowser() || standalone() || document.querySelector('.open-chrome-bar')) return;
+    try { if (sessionStorage.getItem('vezu-chrome-bar') === '1') return; } catch (e) {}
+    var bar = document.createElement('div');
+    bar.className = 'open-chrome-bar';
+    bar.setAttribute('role', 'status');
+    bar.innerHTML = '<span>' + t('inst_bar') + '</span><span class="open-chrome-actions"><a class="btn btn-grad btn-sm" href="' + chromeIntent() + '">' + t('inst_chrome') + '</a><button type="button" class="btn btn-glass btn-sm" data-chrome-dismiss aria-label="Закрыть">✕</button></span>';
+    bar.querySelector('[data-chrome-dismiss]').addEventListener('click', function () {
+      try { sessionStorage.setItem('vezu-chrome-bar', '1'); } catch (e) {}
+      bar.remove();
+    });
+    document.body.insertBefore(bar, document.body.firstChild);
   }
-  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
-    // новая версия сайта: сразу активировать и один раз перезагрузить страницу
+  function bindAllInstall() { document.querySelectorAll('[data-install], #install').forEach(bindInstall); showOpenChromeBar(); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bindAllInstall); else bindAllInstall();
+  // Больше не подменяем манифест визитки (blob: / <slug>.webmanifest ломает WebAPK).
+  function cardManifest() {}
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
     var hadCtrl = !!navigator.serviceWorker.controller, reloaded = false;
     navigator.serviceWorker.addEventListener('controllerchange', function () {
       if (!hadCtrl || reloaded) return; reloaded = true;
       if (!document.querySelector('input:focus, textarea:focus')) location.reload();
     });
     window.addEventListener('load', function () {
-      navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(function (r) { if (r.update) r.update(); }).catch(function () {});
+      navigator.serviceWorker.register('sw.js', { scope: './', updateViaCache: 'none' }).then(function (r) { if (r.update) r.update(); }).catch(function () {});
     });
   }
 

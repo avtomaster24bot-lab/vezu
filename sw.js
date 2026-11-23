@@ -1,7 +1,7 @@
 /* ВЕЗУ service worker: сеть в первую очередь, кэш — для работы офлайн */
-var CACHE = 'vezu-platform-v10';
+var CACHE = 'vezu-platform-v11';
 var SHELL = ['./', 'index.html', 'card.html', 'new.html', 'tarify.html', 'catalog.html', 'app.html', 'privacy.html', 'js/config.js', 'js/calc.js', 'js/favs.js', 'js/reviews.js', 'js/cab.js', 'js/sticker.js', 'js/app.js', 'js/share.js', 'js/cloud.js', 'js/pro.js', 'js/pay.js', 'js/catalog.js', 'css/style.css', 'js/common.js', 'js/card.js', 'js/new.js',
-  'js/vendor/qrcode.js', 'js/vendor/inflate.js', 'favicon.svg', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png',
+  'js/vendor/qrcode.js', 'js/vendor/inflate.js', 'favicon.svg', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-192.png', 'icons/maskable-512.png', 'icons/apple-touch-icon.png',
   'img/hero-van-720.webp', 'img/v-kabluk.webp', 'img/v-gazel.webp', 'img/v-gazel-long.webp', 'img/v-truck3.webp'];
 self.addEventListener('install', function (e) {
   self.skipWaiting();
@@ -36,7 +36,11 @@ self.addEventListener('fetch', function (e) {
     return res;
   }).catch(function () {
     return caches.match(req, { ignoreSearch: true }).then(function (r) {
-      return r || (nav ? caches.match('card.html') : Response.error());
+      if (r) return r;
+      if (!nav) return Response.error();
+      return caches.match('app.html').then(function (a) {
+        return a || caches.match('./').then(function (i) { return i || caches.match('index.html') || caches.match('card.html') || Response.error(); });
+      });
     });
   }));
 });
