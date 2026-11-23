@@ -34,8 +34,19 @@ async function tg(method: string, payload: unknown) {
 const esc = (s: string) => String(s ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]!));
 const ok = (b: unknown = { ok: true }) => new Response(JSON.stringify(b), { headers: { "Content-Type": "application/json" } });
 
+function briefWhat(j: Record<string, unknown>) {
+  const raw = String(j.what ?? "").replace(/\s+/g, " ").trim();
+  const words = raw.split(" ").filter(Boolean).slice(0, 6).join(" ");
+  return words.length > 42 ? words.slice(0, 42).replace(/\s+\S*$/, "") : words;
+}
+function briefLine(j: Record<string, unknown>) {
+  const what = briefWhat(j);
+  const price = typeof j.price === "number" ? Number(j.price).toLocaleString("ru-RU") + " ₸" : "цена договорная";
+  return "Новый заказ. " + (what ? what + ". " : "") + price;
+}
 function orderText(j: Record<string, unknown>) {
   const lines = [j.scope === "picked" ? "🚚 <b>Заказ лично вам</b>" : "🚚 <b>Новый заказ в ленте ВЕЗУ</b>"];
+  lines.push(briefLine(j));
   if (j.cargo && CARGO[j.cargo as string]) lines.push("📦 " + CARGO[j.cargo as string]);
   if (j.city) lines.push("🏙 " + esc(String(j.city)));
   const route = [j.from, j.to].filter(Boolean).map((x) => esc(String(x))).join(" → ");

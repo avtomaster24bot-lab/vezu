@@ -39,7 +39,7 @@
     document.querySelectorAll('.bnav a').forEach(function (a) { a.classList.toggle('on', a.getAttribute('href') === '#' + t); a.setAttribute('aria-current', a.getAttribute('href') === '#' + t ? 'page' : 'false'); });
     if (t === 'favs') drawFavs();
     if (t === 'orders') loadOrders();
-    if (t === 'feed') loadFeed();
+    if (t === 'feed') { ensureSoundUi(); loadFeed(); }
     if (t === 'order') drawTargets();
     clearInterval(timer);
     if (t === 'orders' || t === 'feed') timer = setInterval(function () { if (!document.hidden) (t === 'orders' ? loadOrders : loadFeed)(true); }, POLL);
@@ -216,6 +216,208 @@
     }
   });
 
+
+  // ---------- звук новых заказов (колокольчик + короткий голос) ----------
+  var SND_K = 'vezu-feed-sound', ANN_K = 'vezu-announced';
+  var soundOn = C.ls(SND_K) === true, audioCtx = null, soundUnlocked = false, soundPrimed = false;
+
+  function ruHund(n) {
+    var h = ['', 'сто', 'двести', 'триста', 'четыреста', 'пятьсот', 'шестьсот', 'семьсот', 'восемьсот', 'девятьсот'];
+    var t = ['', 'десять', 'двадцать', 'тридцать', 'сорок', 'пятьдесят', 'шестьдесят', 'семьдесят', 'восемьдесят', 'девяносто'];
+    var u = ['', 'один', 'два', 'три', 'четыре', 'пять', 'шесть', 'семь', 'восемь', 'девять'];
+    var teen = ['десять', 'одиннадцать', 'двенадцать', 'тринадцать', 'четырнадцать', 'пятнадцать', 'шестнадцать', 'семнадцать', 'восемнадцать', 'девятнадцать'];
+    var s = [];
+    if (n >= 100) { s.push(h[Math.floor(n / 100)]); n %= 100; }
+    if (n >= 10 && n < 20) s.push(teen[n - 10]);
+    else { if (n >= 20) { s.push(t[Math.floor(n / 10)]); n %= 10; } if (n) s.push(u[n]); }
+    return s.join(' ');
+  }
+  function ruNum(n) {
+    n = Math.round(Math.abs(+n || 0));
+    if (!n) return 'ноль';
+    var out = [], th = Math.floor(n / 1000), r = n % 1000;
+    if (th) {
+      var last = th % 100, last1 = th % 10, word;
+      if (last >= 11 && last <= 14) word = 'тысяч';
+      else if (last1 === 1) word = 'тысяча';
+      else if (last1 >= 2 && last1 <= 4) word = 'тысячи';
+      else word = 'тысяч';
+      var parts = ruHund(th).split(' ');
+      if (last1 === 1 && !(last >= 11 && last <= 14)) parts[parts.length - 1] = 'одна';
+      if (last1 === 2 && !(last >= 11 && last <= 14)) parts[parts.length - 1] = 'две';
+      out.push(parts.join(' '), word);
+    }
+    if (r) out.push(ruHund(r));
+    return out.join(' ').replace(/\s+/g, ' ').trim();
+  }
+  function briefWhat(o) {
+    var s = String((o && (o.what || (V.cargoLabel && V.cargoLabel(o.cargo)))) || '').replace(/\s+/g, ' ').trim();
+    var w = s.split(' ').filter(Boolean);
+    if (w.length > 6) s = w.slice(0, 6).join(' ');
+    if (s.length > 42) s = s.slice(0, 42).replace(/\s+\S*$/, '').replace(/[.,;:]+$/, '');
+    return s;
+  }
+  function announceText(o) {
+    var what = briefWhat(o);
+    var price = (o.calc && o.calc.price) || o.agreed || null;
+    return 'Новый заказ. ' + (what ? what + '. ' : '') + (price ? ruNum(price) + ' тенге' : 'Цена договорная');
+  }
+  function announcedIds() {
+    var a = C.ls(ANN_K);
+    return Array.isArray(a) ? a.map(String) : [];
+  }
+  function markAnnounced(ids) {
+    var a = announcedIds();
+    (ids || []).forEach(function (id) { id = String(id); if (a.indexOf(id) < 0) a.push(id); });
+    if (a.length > 400) a = a.slice(-300);
+    C.ls(ANN_K, a);
+  }
+  function pickRuVoice() {
+    if (!window.speechSynthesis) return null;
+    var list = speechSynthesis.getVoices() || [];
+    var ru = list.filter(function (v) { return /^ru(-|_|$)/i.test(v.lang || ''); });
+    var male = ru.filter(function (v) {
+      return /male|муж|pavel|pavel|yuri|yuriy|yury|dmitr|georg|andrey|andrei|microsoft.*(pavel|dmitry)|ivan/i.test((v.name || '') + ' ' + (v.voiceURI || ''));
+    });
+    return male[0] || ru[0] || null;
+  }
+  function unlockSound() {
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (AC && !audioCtx) audioCtx = new AC();
+      if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+      if (audioCtx) {
+        var b = audioCtx.createBuffer(1, 1, 22050), src = audioCtx.createBufferSource();
+        src.buffer = b; src.connect(audioCtx.destination); src.start(0);
+      }
+    } catch (e) {}
+    try {
+      if (window.speechSynthesis) {
+        speechSynthesis.getVoices();
+        var warm = new SpeechSynthesisUtterance(' ');
+        warm.volume = 0; warm.lang = 'ru-RU';
+        speechSynthesis.speak(warm); speechSynthesis.cancel();
+      }
+    } catch (e) {}
+    soundUnlocked = true;
+  }
+  function playChime() {
+    return new Promise(function (resolve) {
+      try {
+        if (!audioCtx) { resolve(); return; }
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        var t0 = audioCtx.currentTime + 0.02;
+        // короткий «дин-дон», как объявление в аэропорту: четыре чистых тона
+        var notes = [
+          { f: 659.25, at: 0,    d: 0.22 },
+          { f: 783.99, at: 0.14, d: 0.22 },
+          { f: 987.77, at: 0.28, d: 0.26 },
+          { f: 1318.5, at: 0.48, d: 0.55 }
+        ];
+        var master = audioCtx.createGain();
+        master.gain.value = 0.22;
+        master.connect(audioCtx.destination);
+        notes.forEach(function (n) {
+          var osc = audioCtx.createOscillator(), g = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.value = n.f;
+          var a = t0 + n.at;
+          g.gain.setValueAtTime(0.0001, a);
+          g.gain.exponentialRampToValueAtTime(0.9, a + 0.03);
+          g.gain.exponentialRampToValueAtTime(0.0001, a + n.d);
+          osc.connect(g); g.connect(master);
+          osc.start(a); osc.stop(a + n.d + 0.02);
+        });
+        setTimeout(resolve, 1100);
+      } catch (e) { resolve(); }
+    });
+  }
+  function speakLine(text) {
+    return new Promise(function (resolve) {
+      if (!window.speechSynthesis || !text) { resolve(); return; }
+      try { speechSynthesis.cancel(); } catch (e) {}
+      var u = new SpeechSynthesisUtterance(text);
+      u.lang = 'ru-RU';
+      u.rate = 0.95;
+      u.volume = 1;
+      var v = pickRuVoice();
+      if (v) u.voice = v;
+      else u.pitch = 0.85;
+      var done = false;
+      function end() { if (done) return; done = true; resolve(); }
+      u.onend = end; u.onerror = end;
+      setTimeout(end, 8000);
+      try { speechSynthesis.speak(u); } catch (e) { end(); }
+    });
+  }
+  function announce(orders) {
+    var list = (orders || []).slice(0, 2);
+    if (!list.length) return;
+    playChime().then(function () {
+      var i = 0;
+      function next() {
+        if (i >= list.length) return;
+        speakLine(announceText(list[i++])).then(next);
+      }
+      next();
+    });
+  }
+  function noticeNew(orders) {
+    var ids = (orders || []).map(function (o) { return o.id; }).filter(Boolean);
+    if (!soundPrimed) { markAnnounced(ids); soundPrimed = true; return; }
+    var seen = announcedIds();
+    var fresh = (orders || []).filter(function (o) { return o.status === 'open' && o.id && seen.indexOf(String(o.id)) < 0; });
+    fresh.sort(function (a, b) { return new Date(b.at || 0) - new Date(a.at || 0); });
+    markAnnounced(ids);
+    if (!soundOn || !soundUnlocked || !fresh.length) return;
+    announce(fresh);
+  }
+  function paintSoundBtn() {
+    var b = document.getElementById('feedsnd');
+    if (!b) return;
+    var on = soundOn && soundUnlocked;
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    b.textContent = on ? '🔔 Звук заказов: вкл' : (soundOn ? '🔔 Звук заказов: нажмите, чтобы включить' : '🔔 Звук заказов: выкл');
+  }
+  function ensureSoundUi() {
+    var sec = document.querySelector('[data-tab="feed"]');
+    if (!sec) return;
+    var b = document.getElementById('feedsnd');
+    if (!b) {
+      b = document.createElement('button');
+      b.type = 'button';
+      b.id = 'feedsnd';
+      b.className = 'feed-sound';
+      var h = sec.querySelector('h1');
+      if (h && h.nextSibling) h.parentNode.insertBefore(b, h.nextSibling);
+      else sec.insertBefore(b, sec.firstChild);
+      var hint = document.createElement('p');
+      hint.className = 'fine feed-sound-h';
+      hint.textContent = 'Звук работает, пока приложение открыто. Если свернёте телефон — придёт уведомление в Telegram.';
+      b.after(hint);
+      b.addEventListener('click', function () {
+        if (!soundOn || !soundUnlocked) {
+          soundOn = true;
+          C.ls(SND_K, true);
+          unlockSound();
+          paintSoundBtn();
+          playChime();
+        } else {
+          soundOn = false;
+          C.ls(SND_K, false);
+          soundUnlocked = false;
+          try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) {}
+          paintSoundBtn();
+        }
+      });
+    }
+    b.hidden = !C.key();
+    var h2 = sec.querySelector('.feed-sound-h');
+    if (h2) h2.hidden = !C.key();
+    paintSoundBtn();
+  }
+  if (window.speechSynthesis) speechSynthesis.addEventListener('voiceschanged', function () {});
+
   // ---------- лента водителя ----------
   var lastFeed = null, myCard = null, feedMeta = null;
   function proNote() {
@@ -233,7 +435,7 @@
     if (!quiet && !lastFeed) box.innerHTML = '<p class="muted">Загружаю заказы…</p>';
     if (!myCard) C.rpc('vz_me', { p_key: C.key() }).then(function (c) { myCard = c; var st = $('#feedst'); if (c && CAB) { st.innerHTML = '<section class="glass cab-sec">' + CAB.statusHtml(c.status) + '</section>'; } }, function () {});
     C.rpc('vz_feed_meta', { p_key: C.key() }).then(function (m) { feedMeta = m; if (lastFeed) drawFeed(); }, function () {});
-    C.rpc('vz_feed', { p_key: C.key() }).then(function (a) { lastFeed = a || []; drawFeed(); seenFeed(); }, function (e) { if (!quiet) box.innerHTML = '<p class="err-msg">' + esc(e.message) + '</p>'; });
+    C.rpc('vz_feed', { p_key: C.key() }).then(function (a) { lastFeed = a || []; drawFeed(); seenFeed(); noticeNew(a || []); }, function (e) { if (!quiet) box.innerHTML = '<p class="err-msg">' + esc(e.message) + '</p>'; });
   }
   function drawFeed() {
     var a = lastFeed || [], box = $('#feedl');
@@ -293,6 +495,7 @@
     if (C.key() && cur !== 'feed') C.rpc('vz_feed', { p_key: C.key() }).then(function (a) {
       var seen = C.ls('vezu-seen-feed'); if (!Array.isArray(seen)) seen = [];
       setBadge('feed', (a || []).filter(function (o) { return o.status === 'open' && !o.my && seen.indexOf(o.id) < 0; }).length);
+      noticeNew(a || []);
     }, function () {});
   }
   if (C.key()) document.body.classList.add('is-driver');

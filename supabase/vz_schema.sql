@@ -1023,13 +1023,15 @@ begin
     left join public.vz_order_targets t on t.order_id = o.id and t.card_id = c.id
     left join public.vz_order_responses r on r.order_id = o.id and r.card_id = c.id
     where o.dev_hash not in (select d.dev_hash from public.vz_devices d where d.blocked)
+      -- старше 24 часов скрываем (и открытые, и «В работе» / «Выполнен»); строки не удаляем
+      and o.created_at > now() - interval '24 hours'
       and ((o.status = 'open' and o.expires_at > now() and (o.scope = 'all' or t.card_id is not null)
             -- приоритет Про: новые общие заказы Про видит сразу, Базовая — через 10 минут (личные заказы — сразу всем)
             and (t.card_id is not null or coalesce(c.pro_until > now(), false) or o.created_at <= now() - interval '10 minutes')
             -- общие заказы — только при совпадении города (межгород: город отправления). Без города у водителя общие скрыты.
             and (t.card_id is not null or vz_private.vz_city_eq(c.city, o.city)))
-        -- «В работе» / «Выполнен» остаются в ленте города как подтверждение, что заказы берутся (без телефона клиента)
-        or (o.status in ('taken', 'done') and o.created_at > now() - interval '7 days'
+        -- «В работе» / «Выполнен» в ленте города только в те же 24 часа (без телефона клиента)
+        or (o.status in ('taken', 'done')
             and (o.taken_card = c.id or vz_private.vz_city_eq(c.city, o.city))))
     order by o.created_at desc limit 100) s);
 end $$;
@@ -1041,7 +1043,7 @@ begin
   select * into c from public.vz_cards where key_hash = vz_private.vz_hash(p_key) and not is_blocked;
   if c.id is null then raise exception 'Сначала сохраните визитку в облаке'; end if;
   select * into o from public.vz_orders where id = p_id;
-  if o.id is null or o.status <> 'open' or o.expires_at < now() then raise exception 'Заказ уже закрыт'; end if;
+  if o.id is null or o.status <> 'open' or o.expires_at < now() or o.created_at <= now() - interval '24 hours' then raise exception 'Заказ уже закрыт'; end if;
   if o.scope = 'picked' and not exists (select 1 from public.vz_order_targets where order_id = o.id and card_id = c.id) then raise exception 'Заказ адресован другим водителям'; end if;
   if o.scope = 'all' then
     if vz_private.vz_norm_city(c.city) = '' then raise exception 'Укажите свой город в кабинете визитки — в ленте будут заказы вашего города'; end if;
@@ -1438,7 +1440,7 @@ begin
            and (vz_private.vz_city_eq(c.city, o.city)
              or exists (select 1 from unnest(string_to_array(t.cities, ',')) y where vz_private.vz_city_eq(y, o.city)))
          end);
-  return jsonb_build_object('chats', to_jsonb(chats), 'scope', o.scope, 'cargo', o.cargo, 'city', o.city,
+  return jsonb_build_object('chats', to_jsonb(chats), 'scope', o.scope, 'cargo', o.cargo, 'city', o.city, 'what', o.what,
     'from', vz_private.vz_area(o.from_addr), 'to', vz_private.vz_area(o.to_addr),
     'when', o.when_text, 'when_at', o.when_at, 'km', o.calc->'km', 'price', o.calc->'price');
 end $$;

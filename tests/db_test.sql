@@ -378,3 +378,32 @@ begin
   delete from public.vz_orders where id = oid;
 end $$;
 select 'CONFIRM OK';
+
+-- v17: в ленте нет заказов старше 24 часов (в том числе «В работе»); отклик тоже закрыт
+do $$ declare
+  k text := 'agkey_' || repeat('a', 30);
+  dev text := 'odagtest000000000000000000000000000000000000001';
+  c1 uuid; fresh uuid; old_open uuid; old_taken uuid; f jsonb; j jsonb;
+  city text := 'Тестополь-ВЕЗУ';
+begin
+  perform public.vz_save_card(k, jsonb_build_object('n','Возраст','p','77000001601','t',city), 'ag-test-a', 'gazel', true, null, 'driver_v1');
+  select id into c1 from public.vz_cards where slug = 'ag-test-a';
+  update public.vz_cards set pro_until = now() + interval '10 days' where id = c1;
+  fresh := public.vz_order_create(dev, jsonb_build_object('what','стул','from','Центр','phone','77000001699','city',city), null, 'order_v1');
+  old_open := public.vz_order_create(dev, jsonb_build_object('what','старый открытый','from','Центр','phone','77000001698','city',city), null, 'order_v1');
+  old_taken := public.vz_order_create(dev, jsonb_build_object('what','старый в работе','from','Центр','phone','77000001697','city',city), null, 'order_v1');
+  perform public.vz_order_respond(k, old_taken, 5000, '');
+  update public.vz_orders set status = 'taken', taken_card = c1, agreed_price = 5000 where id = old_taken;
+  update public.vz_orders set created_at = now() - interval '25 hours', expires_at = now() + interval '1 hour' where id in (old_open, old_taken);
+  begin
+    perform public.vz_order_respond(k, old_open, 4000, '');
+    raise exception 'respond on old allowed';
+  exception when others then if sqlerrm = 'respond on old allowed' then raise; end if; end;
+  f := public.vz_feed(k);
+  if not exists (select 1 from jsonb_array_elements(f) e where (e->>'id')::uuid = fresh) then raise exception 'fresh missing'; end if;
+  if exists (select 1 from jsonb_array_elements(f) e where (e->>'id')::uuid = old_open) then raise exception 'old open in feed'; end if;
+  if exists (select 1 from jsonb_array_elements(f) e where (e->>'id')::uuid = old_taken) then raise exception 'old taken in feed'; end if;
+  perform public.vz_delete_card(k);
+  delete from public.vz_orders where id in (fresh, old_open, old_taken);
+end $$;
+select 'AGE OK';
