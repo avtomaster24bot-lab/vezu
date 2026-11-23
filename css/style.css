@@ -791,3 +791,35 @@ ol.inst li{color:var(--ink)}
 .set-city-row em{font-style:normal;font-weight:700;color:var(--acc,#8f7cff);font-size:14px}
 .city-show .city-known-v{margin:4px 0 2px;font-size:18px;font-weight:800}
 .city-cat-h{margin:0 0 10px;font-weight:700;font-size:16px}
+
+/* нижнее меню: у клиента 4 пункта, у водителя 4 */
+.bnav a.bn-cl{display:grid}
+.bnav a.bn-drv{display:none}
+body.is-driver .bnav a.bn-cl{display:none}
+body.is-driver .bnav a.bn-drv{display:grid}
+.bnav a.bn-both, body.is-driver .bnav a.bn-both{display:grid}
+.bnav .bn-ico{font-size:22px;line-height:1;display:block}
+@media (max-width:390px){.bnav .bn-ico{font-size:20px}}
+
+.wiz-top{margin:0 0 16px}
+.wiz-k{margin:0 0 8px;font-size:14px;color:var(--mute,rgba(255,255,255,.6))}
+.wiz-k b{color:inherit;font-weight:800}
+.wiz-bar{height:8px;border-radius:99px;background:rgba(255,255,255,.1);overflow:hidden}
+.wiz-bar i{display:block;height:100%;width:14%;border-radius:99px;background:var(--grad,linear-gradient(90deg,#8f7cff,#4fd1ff));transition:width .25s}
+.wiz-h{margin:0 0 10px;font-size:24px;letter-spacing:-.03em}
+.wiz-nav{display:grid;grid-template-columns:1fr 1.4fr;gap:10px;margin-top:18px}
+.send-sum{margin:0 0 14px}
+.sum-list{margin:0;padding:0;list-style:none;display:grid;gap:6px}
+.sum-list li{padding:8px 0;border-bottom:1px solid var(--line,rgba(255,255,255,.08))}
+.st-badge{display:inline-flex;align-items:center;min-height:32px;padding:4px 12px;border-radius:999px;font-weight:800;font-size:14px;margin:0 0 10px}
+.st-badge.pending{background:rgba(255,159,67,.22);color:#ffe0c2}
+.st-badge.ok{background:rgba(52,211,153,.2);color:#b8f7d6}
+.st-badge.fix{background:rgba(255,95,109,.2);color:#ffd2dc}
+.st-badge.none{background:rgba(255,255,255,.1);color:var(--mute,rgba(255,255,255,.7))}
+.sent-st h2{margin:8px 0 10px;font-size:26px;letter-spacing:-.03em;line-height:1.15}
+.mycard-pv{padding:8px;margin:0 0 12px}
+.mycard-qr{width:180px;margin:12px auto;background:#fff;border-radius:16px;padding:10px}
+.mycard-qr svg,.mycard-qr img{display:block;width:100%;height:auto}
+.build[data-step]:not([data-step="8"]) .preview{display:none}
+.adm-tg{padding:16px;margin:0 0 18px}
+.adm-tg h3{margin:0 0 8px}

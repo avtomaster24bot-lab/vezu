@@ -24,6 +24,17 @@ function cors(origin: string | null): Record<string, string> {
 }
 const json = (b: unknown, status: number, h: Record<string, string>) =>
   new Response(JSON.stringify(b), { status, headers: { ...h, "Content-Type": "application/json" } });
+async function pingTg(payload: Record<string, unknown>) {
+  const dbp = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
+  const { data, error } = await dbp.rpc("vz_tg_secrets");
+  if (error || !data) { console.log("tg secrets unavailable, skip notify"); return { sent: 0, skipped: "secrets" }; }
+  const s = data as Record<string, string>;
+  if (!s.vz_tg_notify_secret) { console.log("tg notify secret missing, skip notify"); return { sent: 0, skipped: "secret" }; }
+  const url = (Deno.env.get("SUPABASE_URL") || "") + "/functions/v1/vz-tg";
+  const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", "x-vz-notify": s.vz_tg_notify_secret }, body: JSON.stringify(payload) });
+  if (!r.ok) { console.log("tg ping status", r.status); return { sent: 0 }; }
+  return await r.json().catch(() => ({ sent: 0 }));
+}
 async function sha256hex(s: string) {
   const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
   return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, "0")).join("");
@@ -88,6 +99,7 @@ Deno.serve(async (req) => {
       const { error } = await db.from("vz_cards").update(upd).eq("id", card);
       if (error) { console.error("decide", error); return json({ error: "db" }, 500, h); }
       await wipe(card);
+      try { await pingTg({ type: "driver_verify", card, decide: body.decide, note: body.decide === "ok" ? "" : (note || "Проверьте данные и фото машины, затем отправьте ещё раз.") }); } catch (e) { console.log("driver notify skipped"); }
       return json({ ok: true }, 200, h);
     }
     return json({ error: "bad_request" }, 400, h);
@@ -103,19 +115,22 @@ Deno.serve(async (req) => {
   if (card.verified_at) return json({ error: "already" }, 409, h);
   const plate = String(body.plate ?? "").toUpperCase().replace(/[^A-Z0-9А-Я]/g, "")
     .replace(/[АВЕКМНОРСТХУ]/g, (ch) => ({ А: "A", В: "B", Е: "E", К: "K", М: "M", Н: "H", О: "O", Р: "P", С: "C", Т: "T", Х: "X", У: "Y" } as Record<string, string>)[ch]);
-  if (!/^[A-Z0-9]{4,10}$/.test(plate)) return json({ error: "bad_plate" }, 400, h);
+  if (plate && !/^[A-Z0-9]{4,10}$/.test(plate)) return json({ error: "bad_plate" }, 400, h);
   if (body.consent !== CONSENT) return json({ error: "need_consent" }, 400, h);
-  const car = jpeg(body.car);
-  if (!car) return json({ error: "bad_image" }, 400, h);
+  const car = body.car ? jpeg(body.car) : null;
+  if (body.car && !car) return json({ error: "bad_image" }, 400, h);
   await wipe(card.id);
-  const cp = `${card.id}/car${Date.now()}.jpg`;
-  const up = await db.storage.from(B).upload(cp, car, { contentType: "image/jpeg", upsert: false });
-  if (up.error) { console.error("upload", up.error); await wipe(card.id); return json({ error: "upload" }, 500, h); }
-  const { error: ie } = await db.from("vz_verify_req").insert({ card_id: card.id, plate, car_path: cp });
+  let cp: string | null = null;
+  if (car) {
+    cp = `${card.id}/car${Date.now()}.jpg`;
+    const up = await db.storage.from(B).upload(cp, car, { contentType: "image/jpeg", upsert: false });
+    if (up.error) { console.error("upload", up.error); await wipe(card.id); return json({ error: "upload" }, 500, h); }
+  }
+  const { error: ie } = await db.from("vz_verify_req").insert({ card_id: card.id, plate: plate || "", car_path: cp });
   if (ie) { console.error("insert", ie); await wipe(card.id); return json({ error: "db" }, 500, h); }
-  // журнал согласий: как у согласия водителя (версия текста, визитка, хеш ключа доступа визитки)
   const { error: ce } = await db.from("vz_consents").insert({ kind: "verify", version: CONSENT, card_id: card.id, dev_hash: await sha256hex(key) });
   if (ce) { console.error("consent", ce); await wipe(card.id); return json({ error: "db" }, 500, h); }
   await db.from("vz_cards").update({ verify_note: "" }).eq("id", card.id);
+  try { await pingTg({ type: "admin_verify", card: card.id }); } catch (e) { console.log("admin notify skipped"); }
   return json({ state: "pending" }, 200, h);
 });

@@ -60,8 +60,9 @@
   }
 
   function main() {
-    app.innerHTML = '<div class="adm-head"><h1>Водители ВЕЗУ Про</h1><button class="lnk" id="out" type="button">Выйти</button></div>' +
+    app.innerHTML = '<div class="adm-head"><h1>Админка ВЕЗУ</h1><button class="lnk" id="out" type="button">Выйти</button></div>' +
       '<div class="adm-stats" id="st"></div>' +
+      '<section class="adm-sec glass adm-tg" id="admtg"></section>' +
       '<section class="adm-sec" id="vfy"></section><section class="adm-sec" id="reqs"></section><section class="adm-sec" id="exp"></section>' +
       '<section class="adm-sec" id="revs"></section><section class="adm-sec" id="ords"></section>' +
       '<details class="adm-sec glass adm-rates" id="rates"><summary><b>Примерная цена: тарифы по умолчанию</b></summary><div data-rates><p class="muted">Загрузка…</p></div></details>' +
@@ -75,7 +76,7 @@
     document.getElementById('revs').addEventListener('click', revAct);
     document.getElementById('ords').addEventListener('click', ordAct);
     document.getElementById('vfy').addEventListener('click', vfyAct);
-    stats(); find(); lists(); reviews(); orders(); verifs(); ratesUI();
+    stats(); find(); lists(); reviews(); orders(); verifs(); ratesUI(); adminTg();
   }
   // ---------- тарифы «примерной цены» (для общей формы заказа и водителей без своих тарифов) ----------
   var RL = [['Минимальный заказ', '₸'], ['Км по городу (сверх минимума)', '₸/км'], ['Км межгород', '₸/км'], ['Грузчик', '₸'], ['Этаж без лифта', '₸'], ['Км входит в минимум', 'км']];
@@ -101,10 +102,34 @@
     }, function (er) { box.innerHTML = '<p class="err-msg">' + esc(er.message) + '</p>'; });
   }
   // ---------- значок «Проверен»: заявки (фото — по ссылкам на 10 минут из закрытого хранилища) ----------
+
+  function adminTg() {
+    var box = document.getElementById('admtg'); if (!box) return;
+    box.innerHTML = '<p class="muted">Telegram админа…</p>';
+    call('vz_admin_tg_status').then(function (st) {
+      st = st || {};
+      var bot = st.bot || 'vezu_orders_bot';
+      box.innerHTML = '<h3>Telegram админа</h3>' +
+        (st.linked
+          ? '<p class="tg-ok">✅ Подключено — заявки на проверку приходят в @' + esc(bot) + ' с кнопками «Одобрить» и «Отклонить».</p>'
+          : '<p class="muted">Сейчас заявки видны только в этом списке «На проверку». Чтобы они приходили в Telegram, подключите @' + esc(bot) + '.</p>') +
+        '<button type="button" class="btn btn-glass" id="admtgbtn">' + (st.linked ? 'Подключить заново' : 'Подключить Telegram админа') + '</button>' +
+        '<div id="admtglink"></div>';
+      document.getElementById('admtgbtn').addEventListener('click', function () {
+        var btn = this; btn.disabled = true; btn.textContent = 'Готовлю ссылку…';
+        call('vz_admin_tg_link').then(function (tok) {
+          btn.disabled = false; btn.textContent = st.linked ? 'Подключить заново' : 'Подключить Telegram админа';
+          var url = 'https://t.me/' + bot + '?start=admin_' + tok;
+          document.getElementById('admtglink').innerHTML = '<p class="fine">Ссылка действует 30 минут. Откройте её в своём Telegram и нажмите «Старт».</p>' +
+            '<a class="btn btn-tg btn-block" href="' + esc(url) + '" target="_blank" rel="noopener">Открыть @' + esc(bot) + '</a>';
+        }, function (er) { btn.disabled = false; V.toast(er.message); });
+      });
+    }, function (er) { box.innerHTML = '<p class="muted">Не удалось загрузить статус Telegram: ' + esc(er.message) + '</p>'; });
+  }
   function verifs() {
     C.verifyCall({ admin: akey, list: true }).then(function (j) {
       var l = j.items || [];
-      document.getElementById('vfy').innerHTML = l.length ? '<h3>Проверка водителей: ' + l.length + '</h3>' + l.map(function (r) {
+      document.getElementById('vfy').innerHTML = '<h3>На проверку' + (l.length ? ': ' + l.length : '') + '</h3>' + (l.length ? l.map(function (r) {
         return '<article class="adm-row glass vf-adm" data-card="' + esc(r.card) + '"><div class="adm-main"><b>' + esc(r.n) + '</b> <span class="muted">+' + esc(r.p) + '</span>' +
           (r.slug ? ' · <a href="' + esc(C.shortUrl(r.slug)) + '" target="_blank">/' + esc(r.slug) + '</a>' : '') + '<br><span class="muted">' + esc([r.car, r.city].filter(Boolean).join(' · ')) + ' · ' + ago(r.at) + '</span>' +
           '<br>Госномер: <b class="vf-plate">' + esc(r.plate) + '</b>' +
@@ -112,7 +137,7 @@
           (r.photo ? '<a href="' + esc(C.photoUrl(r.photo)) + '" target="_blank" rel="noopener"><img src="' + esc(C.photoUrl(r.photo)) + '" alt="Фото визитки" loading="lazy"><small>На визитке</small></a>' : '') + '</div>' +
           '<p class="fine">Сверьте: номер на фото = указанный, машина = тип на визитке. Если в кадре люди — отклоните с причиной «Переснимите без людей». После решения фото и номер удаляются.</p></div>' +
           '<div class="adm-act"><button class="btn btn-grad btn-sm" data-vok="1">Одобрить</button><button class="btn btn-glass btn-sm" data-vno="1">Отклонить</button></div></article>';
-      }).join('') : '';
+      }).join('') : '<p class="muted">Пока нет заявок. Когда водитель нажмёт «Отправить», заявка появится здесь. Если подключить Telegram — придёт сообщение.</p>');
     }, function (er) { document.getElementById('vfy').innerHTML = '<p class="err-msg">Заявки на проверку не загрузились: ' + esc(er.message) + '</p>'; });
   }
   function vfyAct(e) {

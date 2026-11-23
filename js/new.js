@@ -28,14 +28,14 @@
   // тарифы калькулятора: rt = «мин,км город,км межгород,грузчик,этаж,км в минимуме»
   var CALC = window.VEZU_CALC, rtv = String(state.rt || '').split(',');
   if (CALC) CALC.KEYS.forEach(function (k, i) { var el = f.elements['rt' + i]; if (!el) return; el.placeholder = CALC.RATES[k] != null ? String(CALC.RATES[k]) : ''; el.value = rtv[i] || ''; });
-  if (state.rt) document.getElementById('rates').open = true;
+  var ratesEl = document.getElementById('rates'); if (ratesEl && state.rt) ratesEl.open = true;
   if (CALC && CALC.onRates) CALC.onRates(function () { CALC.KEYS.forEach(function (k, i) { var el = f.elements['rt' + i]; if (el) el.placeholder = CALC.RATES[k] != null ? String(CALC.RATES[k]) : ''; }); });
-  document.getElementById('rtreset').addEventListener('click', function () { for (var i = 0; i < 6; i++) f.elements['rt' + i].value = ''; update(); });
+  var rtr = document.getElementById('rtreset'); if (rtr) rtr.addEventListener('click', function () { for (var i = 0; i < 6; i++) f.elements['rt' + i].value = ''; update(); });
   var tgphoto = document.getElementById('tgphoto');
   tgphoto.checked = !!(state.f & V.TG_PHOTO);
   // раскрыть «Ещё», если там уже что-то заполнено
-  if (state.tg || state.i || state.m) f.querySelector('[data-step="1"] details').open = true;
-  if (state.hs != null || state.z || (state.f & 63)) f.querySelector('[data-step="2"] details').open = true;
+  var d1 = f.querySelector('[data-step="1"] details'); if (d1 && (state.tg || state.i || state.m)) d1.open = true;
+  var d2 = f.querySelector('[data-step="2"] details'); if (d2 && (state.hs != null || state.z || (state.f & 63))) d2.open = true;
 
   function chips(el, items, attr) {
     el.innerHTML = items.map(function (x) { return '<button type="button" class="qchip" ' + attr + '="' + V.esc(x.v) + '" aria-pressed="false">' + V.esc(x.l) + '</button>'; }).join('');
@@ -97,8 +97,10 @@
   // ---- фото с телефона: хранится только на этом устройстве ----
   var phav = document.getElementById('phav'), phdel = document.getElementById('phdel');
   function photo() { try { return JSON.parse(localStorage.getItem(PKEY) || 'null'); } catch (e) { return null; } }
+  var lastPhotoFile = null;
   function onPhotoFile(e) {
     var file = e.target.files && e.target.files[0]; if (!file) return;
+    lastPhotoFile = file;
     V.resizePhoto(file, 256).then(function (img) {
       try { localStorage.setItem(PKEY, JSON.stringify({ p: V.normPhone(phone.value), img: img })); localStorage.removeItem('vezu-photo-del'); } catch (er) { V.toast('Не удалось сохранить фото'); return; }
       V.toast('Фото сохранено на этом телефоне'); update();
@@ -111,43 +113,68 @@
   });
   phdel.addEventListener('click', function () { var x = photo(); localStorage.removeItem(PKEY); if (x && x.up) localStorage.setItem('vezu-photo-del', '1'); update(); });
 
+
   // ---- шаги ----
-  var step = 1;
+  var STEPS = ['Фото', 'Имя', 'Телефон', 'Машина', 'Услуги', 'Город', 'Отправка'];
+  var step = 1, cloud = null, sending = false;
+  var link = '', d = {}, seq = 0, short = '', pvwrap = document.getElementById('pvwrap');
+  var Cld = window.VZC;
+
   function cabCity() { return V.normCity((V.getCity && V.getCity()) || (f.elements.t && f.elements.t.value) || state.t || ''); }
-  function valid1() { return !!(f.elements.n.value.trim() && V.normPhone(phone.value) && cabCity()); }
+  function hasPhoto() { var p = photo(); return !!(p && p.img); }
+  function validStep(n) {
+    if (n <= 1) return hasPhoto();
+    if (n <= 2) return !!(hasPhoto() && f.elements.n.value.trim());
+    if (n <= 3) return !!(hasPhoto() && f.elements.n.value.trim() && V.normPhone(phone.value));
+    if (n <= 5) return validStep(3);
+    if (n <= 6) return !!(validStep(3) && cabCity());
+    return !!(validStep(6));
+  }
+  function paintBar() {
+    var el = document.querySelector('[data-wizbar] i');
+    var tot = step >= 8 ? 7 : step;
+    if (el) el.style.width = Math.round((tot / 7) * 100) + '%';
+    var i = document.querySelector('[data-wizi]'), t = document.querySelector('[data-wizt]');
+    if (i) i.textContent = step >= 8 ? '7' : String(step);
+    if (t) t.textContent = step >= 8 ? 'Готово' : STEPS[step - 1];
+    var top = document.querySelector('.wiz-top');
+    if (top) top.hidden = step >= 8;
+  }
   function go(n) {
-    if (n > 1 && !valid1()) {
-      n = 1; document.getElementById('err1').hidden = false;
-      var miss = !f.elements.n.value.trim() ? f.elements.n : !V.normPhone(phone.value) ? phone : (f.querySelector('[data-city-display]') || f.elements.t);
-      if (miss && miss.classList) miss.classList.add('bad');
-      if (miss && miss.focus) miss.focus();
-      if (!cabCity() && V.openCitySheet) V.openCitySheet();
+    n = +n;
+    if (n > step && n <= 7) {
+      if (n > 1 && !hasPhoto()) { n = 1; V.toast('Сначала добавьте фото машины'); }
+      else if (n > 2 && !f.elements.n.value.trim()) { n = 2; f.elements.n.classList.add('bad'); f.elements.n.focus(); }
+      else if (n > 3 && !V.normPhone(phone.value)) { n = 3; phone.classList.add('bad'); phone.focus(); }
+      else if (n > 6 && !cabCity()) { n = 6; if (V.openCitySheet) V.openCitySheet(); V.toast('Выберите город в шапке'); }
     }
     step = n; build.dataset.step = n;
-    document.querySelectorAll('.progress [data-go]').forEach(function (b) {
-      var k = +b.dataset.go; b.classList.toggle('done', k < n); b.classList.toggle('cur', k === n); b.setAttribute('aria-selected', k === n);
-    });
+    var proEl = document.getElementById('pro');
+    if (proEl) proEl.hidden = n !== 8 || location.hash !== '#pro';
     document.querySelectorAll('.step[data-step]').forEach(function (s) { s.hidden = +s.dataset.step !== n; });
-    var top = document.querySelector('.progress').getBoundingClientRect().top + scrollY - 80;
-    if (scrollY > top) window.scrollTo({ top: top, behavior: 'smooth' });
+    paintBar();
+    if (n === 7) paintSum();
+    var bar = document.querySelector('.wiz-top') || build;
+    try { bar.scrollIntoView({ block: 'start', behavior: 'smooth' }); } catch (e) {}
   }
   document.addEventListener('click', function (e) {
     var b = e.target.closest('[data-next],[data-go]'); if (!b) return;
+    e.preventDefault();
     go(+(b.dataset.next || b.dataset.go));
   });
 
-  var link = '', d = {}, seq = 0, short = '', pvwrap = document.getElementById('pvwrap');
-  function on(el, test) { el.querySelectorAll('button').forEach(function (b) { var v = test(b); b.classList.toggle('on', v); b.setAttribute('aria-pressed', v); }); }
+  function on(el, test) { if (!el) return; el.querySelectorAll('button').forEach(function (b) { var v = test(b); b.classList.toggle('on', v); b.setAttribute('aria-pressed', v); }); }
   function update() {
-    TEXT.forEach(function (k) { state[k] = f.elements[k].value.trim(); });
+    TEXT.forEach(function (k) { if (f.elements[k]) state[k] = f.elements[k].value.trim(); });
     state.p = V.normPhone(phone.value);
-    state.pr = f.elements.pr.value;
+    if (f.elements.pr) state.pr = f.elements.pr.value;
     var rt = []; for (var ri = 0; ri < 6; ri++) { var re = f.elements['rt' + ri]; if (re) { re.value = re.value.replace(/\D/g, '').slice(0, 6); rt.push(re.value); } }
     state.rt = rt.join('').length ? rt.join(',') : '';
-    state.hs = hs.value; state.he = he.value;
+    if (hs) state.hs = hs.value; if (he) state.he = he.value;
     d = V.clean(state);
-    if (valid1()) { document.getElementById('err1').hidden = true; f.elements.n.classList.remove('bad'); phone.classList.remove('bad'); var cp = f.querySelector('[data-city-display]'); if (cp) cp.classList.remove('bad'); }
-    document.getElementById('cnt').textContent = (state.m || '').length + '/80';
+    var err = document.getElementById('err1'); if (err) err.hidden = true;
+    f.elements.n.classList.remove('bad'); phone.classList.remove('bad');
+    var cnt = document.getElementById('cnt'); if (cnt) cnt.textContent = (state.m || '').length + '/80';
     on(cap, function (b) { return b.dataset.v === state.w; });
     on(svc, function (b) { return (state.s || '').indexOf(b.dataset.i) >= 0; });
     on(ex, function (b) { return !!((state.f || 0) & +b.dataset.bit); });
@@ -155,104 +182,153 @@
     on(pu, function (b) { return +b.dataset.v === (state.pu || 0); });
     on(themes, function (b) { return +b.dataset.th === (state.th || 0); });
     on(veh, function (b) { return V.vehicle(d) === b.dataset.k; });
-    h24.classList.toggle('on', d.hs === 0 && d.he === 24);
-    f.elements.i.classList.toggle('bad', !!state.i && !/^https:\/\//i.test(state.i));
-    f.elements.tg.classList.toggle('bad', !!state.tg && !d.tg);
-    tgphoto.disabled = !d.tg;
     var ph = photo(), src = ph && ph.img;
     if (ph && d.p && ph.p !== d.p) { ph.p = d.p; try { localStorage.setItem(PKEY, JSON.stringify(ph)); } catch (e) {} }
-    phav.innerHTML = src ? '<img src="' + src + '" alt="">' : '<span>' + V.esc(V.initials(d.n || '?')) + '</span>';
-    phdel.hidden = !src;
-    V.applyTheme(pvwrap, d.th);
-    document.getElementById('pv').innerHTML = V.cardHero(d, true, { local: true });
+    if (phav) phav.innerHTML = src ? '<img src="' + src + '" alt="">' : '<span>' + V.esc(V.initials(d.n || '?')) + '</span>';
+    if (phdel) phdel.hidden = !src;
+    if (pvwrap) V.applyTheme(pvwrap, d.th);
+    var pv = document.getElementById('pv'); if (pv) pv.innerHTML = V.cardHero(d, true, { local: true });
     var det = V.cardDetails(d), pvd = document.getElementById('pvd');
-    pvd.innerHTML = det; pvd.hidden = !det;
+    if (pvd) { pvd.innerHTML = det; pvd.hidden = !det; }
     try { localStorage.setItem(KEY, JSON.stringify(d)); } catch (e) {}
-
+    if (window.VEZU_PRO && VEZU_PRO.changed) window.VEZU_PRO.changed(d);
     var ok = !!(d.n && d.p);
-    document.getElementById('rbody').classList.toggle('locked', !ok);
-    if (window.VEZU_PRO) window.VEZU_PRO.changed(d);
-    if (!ok) { setLink(''); return; }
+    var rb = document.getElementById('rbody'); if (rb) rb.classList.toggle('locked', !ok);
+    if (!ok) { setLink(''); paintSum(); return; }
     var my = ++seq;
-    if (short) { setLink(short); return; }
+    if (short) { setLink(short); paintSum(); return; }
     setLink(V.cardUrl(d));
-    V.cardUrlAsync(d).then(function (u) { if (my === seq && !short) setLink(u); });
+    paintSum();
+    if (V.cardUrlAsync) V.cardUrlAsync(d).then(function (u) { if (my === seq && !short) setLink(u); });
   }
-  // для ВЕЗУ Про (js/pro.js): данные визитки, короткий адрес вместо длинной ссылки, обновление фото
+  function paintSum() {
+    var box = document.getElementById('sendsum'); if (!box) return;
+    var svc = V.services(d).join(', ');
+    box.innerHTML = '<ul class="sum-list">' +
+      '<li><b>Фото:</b> ' + (hasPhoto() ? 'есть' : 'нет') + '</li>' +
+      '<li><b>Имя:</b> ' + V.esc(d.n || '—') + '</li>' +
+      '<li><b>Телефон:</b> ' + V.esc(d.p ? V.fmtPhone(d.p) : '—') + '</li>' +
+      '<li><b>Машина:</b> ' + V.esc([d.c, d.w].filter(Boolean).join(' · ') || '—') + '</li>' +
+      '<li><b>Услуги:</b> ' + V.esc(svc || '—') + '</li>' +
+      '<li><b>Город:</b> ' + V.esc(cabCity() || '—') + '</li></ul>';
+  }
   window.VEZU_B = {
     data: function () { return d; }, photo: photo, refresh: update,
     setShort: function (u) { if (short !== (u || '')) { short = u || ''; update(); } },
     setForm: function (x) { if (f.elements.n.value.trim()) return false; init = V.clean(x); location.replace('new.html?c=' + V.encodeSync(init)); return true; }
   };
   function setLink(u) {
-    link = u;
-    document.getElementById('link').value = u || 'Здесь появится ваша ссылка';
-    document.getElementById('open').href = u || '#';
-    document.getElementById('qr').innerHTML = V.qrSvg(u || 'https://example.com');
-    document.getElementById('result').dataset.len = u.length;
+    link = u || '';
+    var inp = document.getElementById('link'); if (inp) inp.value = u || '';
+    var a = document.getElementById('open'); if (a) a.href = u || '#';
+    var q = document.getElementById('qr'); if (q && V.qrSvg) q.innerHTML = u ? V.qrSvg(u) : '';
   }
-  update();
-  go(fromLink && valid1() ? 3 : 1);
 
-  document.getElementById('copy').addEventListener('click', function () { if (link) V.copy(link); });
-  document.getElementById('share').addEventListener('click', function () {
-    if (link) V.share('Моя визитка — ' + d.n, 'Грузоперевозки: ' + d.n + '. Заказ в WhatsApp:', link);
-  });
-  document.getElementById('png').addEventListener('click', function () {
-    if (!link) return;
-    V.download('qr-' + V.fileName(d.n) + '.png', V.qrPng(link, d.n + (d.c ? ' · ' + d.c : ''), 'Грузоперевозки · ' + V.fmtPhone(d.p)));
-  });
-  V.bindInstall(document.getElementById('install'));
-
-  var area = document.getElementById('print-area');
-  function cardBlock() {
-    var sv = V.services(d).slice(0, 5).join(' · ');
-    var extra = [V.priceText(d), V.hoursText(d)].filter(Boolean).join(' · ');
-    var ph = V.photoSrc(d, true);
-    return '<div class="pc"><div>' + (ph ? '<img class="pc-ph" src="' + V.esc(ph) + '" alt="">' : '') + '<div class="b">Грузоперевозки</div><div class="n">' + V.esc(d.n) + '</div>' +
-      '<div class="m">' + V.esc(V.metaLine(d)) + '</div>' + (sv ? '<div class="s">' + V.esc(sv) + '</div>' : '') +
-      (extra ? '<div class="s">' + V.esc(extra) + '</div>' : '') +
-      '<div class="p">' + V.esc(V.fmtPhone(d.p)) + '</div><div class="w">WhatsApp · звонки' + (d.tg ? ' · t.me/' + V.esc(d.tg) : '') + '</div></div>' +
-      '<div class="q">' + V.qrSvg(link, '#0b0b1f', '#ffffff') + '<i>визитка и заказ</i></div></div>';
+  function moderation(c) {
+    if (!c) return { k: 'none', l: 'Не отправлена' };
+    if (c.verify_pending) return { k: 'pending', l: 'На проверке' };
+    if (c.verified_at) return { k: 'ok', l: 'Одобрена' };
+    if (c.verify_note) return { k: 'fix', l: 'Нужно исправить' };
+    return { k: 'none', l: 'Не отправлена' };
   }
-  document.getElementById('pcards').addEventListener('click', function () {
-    if (!link) return;
-    var one = cardBlock(), html = ''; for (var i = 0; i < 10; i++) html += one;
-    area.innerHTML = '<div class="pc-sheet">' + html + '</div>'; window.print();
-  });
-  document.getElementById('psticker').addEventListener('click', function () {
-    if (!link) return;
-    area.innerHTML = '<div class="st"><div><div class="t1">ГРУЗОПЕРЕВОЗКИ</div><div class="t2">' + V.esc(V.metaLine(d) || 'до 3 тонн') + '</div></div>' +
-      '<div class="q">' + V.qrSvg(link, '#0b0b1f', '#ffffff') + '</div><div class="t3">Наведите камеру — закажите в WhatsApp</div>' +
-      '<div><div class="p">' + V.esc(V.fmtPhone(d.p)) + '</div><div class="n">' + V.esc(d.n) + '</div></div></div>';
-    window.print();
-  });
+  function statusHtml(c, justSent) {
+    var m = moderation(c);
+    var title = justSent || m.k === 'pending' ? '✅ Ваша визитка отправлена на проверку' : m.k === 'ok' ? '✅ Визитка одобрена' : m.k === 'fix' ? 'Нужно исправить визитку' : 'Черновик визитки';
+    var text = m.k === 'pending' ? 'Админ посмотрит данные и фото. Статус «На проверке» уже здесь; когда решение будет готово, он обновится. Если подключите Telegram в настройках — придёт сообщение.' :
+      m.k === 'ok' ? 'Визитка одобрена. Её можно открывать, делиться ссылкой и QR.' :
+      m.k === 'fix' ? ('Комментарий админа: ' + (c.verify_note || 'Проверьте данные и фото, затем отправьте ещё раз.')) :
+      'Заполните шаги и нажмите «Отправить» — визитка уйдёт на проверку.';
+    return '<div class="sent-st st-' + m.k + '"><p class="st-badge ' + m.k + '">' + V.esc(m.l) + '</p><h2>' + title + '</h2><p class="muted">' + V.esc(text) + '</p>' +
+      (link ? '<div class="res-btns" style="margin-top:12px"><a class="btn btn-grad btn-block" href="app.html#mycard">Открыть мою визитку</a><a class="btn btn-glass btn-block" href="' + V.esc(link) + '" target="_blank" rel="noopener">Открыть как клиент</a></div>' : '') +
+      '</div>';
+  }
+  function paintStatus(c, justSent) {
+    cloud = c || cloud;
+    var box = document.getElementById('sentbox');
+    if (box) box.innerHTML = statusHtml(cloud, justSent);
+  }
 
-  // ---- онбординг: 3 слайда при первом открытии ----
-  var SLIDES = [
-    ['img/hero-van-720.webp', 'Визитка — это ссылка', 'Отправьте её клиентам в WhatsApp или покажите QR-код. Бумажная визитка теряется — ссылка остаётся в телефоне.'],
-    ['img/s-move.webp', 'Заказы сразу в WhatsApp', 'Клиент нажимает кнопку — вам приходит готовое сообщение: что везти, откуда, куда и точка на карте.'],
-    ['img/v-gazel.webp', 'Печать и наклейка на машину', 'Распечатайте визитки и наклейку с QR. Бесплатно и без регистрации — займёт минуту.']
-  ];
-  function onboarding() {
-    var i = 0;
-    var s = V.sheet('', '<div class="onb"><div class="onb-img"><img alt="" width="520" height="300"></div><h2></h2><p></p><div class="dots">' +
-      SLIDES.map(function () { return '<i></i>'; }).join('') + '</div><div class="navrow"><button type="button" class="btn btn-glass" data-o="skip">Пропустить</button><button type="button" class="btn btn-grad" data-o="next">Далее</button></div></div>', 'sheet-onb');
-    var el = s.el;
-    function show() {
-      el.querySelector('.onb-img img').src = SLIDES[i][0];
-      el.querySelector('h2').textContent = SLIDES[i][1];
-      el.querySelector('p').textContent = SLIDES[i][2];
-      el.querySelectorAll('.dots i').forEach(function (x, k) { x.classList.toggle('on', k === i); });
-      el.querySelector('[data-o=next]').textContent = i === SLIDES.length - 1 ? 'Начать' : 'Далее';
-    }
-    el.addEventListener('click', function (e) {
-      var b = e.target.closest('[data-o]'); if (!b) return;
-      if (b.dataset.o === 'next' && i < SLIDES.length - 1) { i++; show(); } else s.close();
+  function syncPhotoIfAny() {
+    if (!Cld || !Cld.uploadPhoto) return Promise.resolve();
+    var x = photo();
+    if (!x || !x.img) return Promise.resolve();
+    return Cld.uploadPhoto(x.img).then(function (path) {
+      if (path && cloud) cloud.photo = path;
+      x.up = '1'; try { localStorage.setItem(PKEY, JSON.stringify(x)); } catch (e) {}
+    }, function () { /* фото в облако — если нет Про, останется на телефоне */ });
+  }
+  function submitVerify(key) {
+    var plate = (f.elements.plate && f.elements.plate.value || '').trim();
+    var run = function (im) { return Cld.verifyCall({ key: key, plate: plate, car: im || '', consent: V.CONSENT.verify.v }); };
+    if (lastPhotoFile && Cld.shrinkJpeg) return Cld.shrinkJpeg(lastPhotoFile).then(run, function () { return run(''); });
+    return run('');
+  }
+  function sendCard() {
+    if (sending) return;
+    update();
+    if (!hasPhoto()) { go(1); V.toast('Добавьте фото машины'); return; }
+    if (!d.n) { go(2); V.toast('Укажите имя'); return; }
+    if (!d.p) { go(3); V.toast('Укажите номер WhatsApp'); return; }
+    if (!cabCity()) { go(6); V.toast('Выберите город в шапке'); return; }
+    var cons = consentV && consentV();
+    if (!cons) { V.toast('Поставьте галочку согласия на обработку данных'); return; }
+    sending = true;
+    var btn = document.getElementById('sendcard');
+    if (btn) { btn.disabled = true; btn.textContent = 'Отправляю…'; }
+    var first = !(Cld.key && Cld.key());
+    var k = Cld.key() || Cld.newKey();
+    Cld.rpc('vz_save_card', {
+      p_key: k, p_data: d, p_slug: null, p_veh: V.vehicle(d) || '',
+      p_published: true, p_ref: first ? (Cld.ls('vezu-ref') || null) : null, p_consent: cons
+    }).then(function (c) {
+      cloud = c;
+      try { Cld.ls('vezu-consent-driver', cons); document.body.classList.add('is-driver'); } catch (e) {}
+      if (c && c.slug) { short = Cld.shortUrl(c.slug); setLink(short); }
+      return syncPhotoIfAny().then(function () { return submitVerify(k); });
+    }).then(function (st) {
+      sending = false;
+      if (btn) { btn.disabled = false; btn.textContent = 'Отправить'; }
+      if (cloud) cloud.verify_pending = !st || st.state === 'pending' || st === 'pending';
+      if (st && st.state === 'already' && cloud) { cloud.verify_pending = false; cloud.verified_at = cloud.verified_at || new Date().toISOString(); }
+      paintStatus(cloud, true);
+      go(8);
+      V.toast('Отправлено на проверку');
+    }, function (e) {
+      sending = false;
+      if (btn) { btn.disabled = false; btn.textContent = 'Отправить'; }
+      var msg = (e && e.message) || 'Не удалось отправить';
+      if (/already|уже проверен/i.test(msg) && cloud) { cloud.verified_at = cloud.verified_at || new Date().toISOString(); paintStatus(cloud, false); go(8); return; }
+      var err = document.getElementById('err1'); if (err) { err.hidden = false; err.textContent = msg; }
+      V.toast(msg);
     });
-    show();
-    try { localStorage.setItem('vezu-onb', '1'); } catch (e) {}
   }
-  var seen = false; try { seen = !!localStorage.getItem('vezu-onb'); } catch (e) {}
-  if (!seen && !fromLink) setTimeout(onboarding, 300);
+
+  var consentV = null;
+  var consbox = document.getElementById('consbox');
+  if (consbox) {
+    consbox.innerHTML = V.consentHtml('driver', Cld.ls && Cld.ls('vezu-consent-driver') === V.CONSENT.driver.v);
+    var sendBtn = document.getElementById('sendcard');
+    consentV = V.consentGate(consbox, 'driver', sendBtn);
+  }
+  if (document.getElementById('sendcard')) document.getElementById('sendcard').addEventListener('click', sendCard);
+
+  var copyB = document.getElementById('copy'); if (copyB) copyB.addEventListener('click', function () { if (link) V.copy(link); });
+  var shareB = document.getElementById('share'); if (shareB) shareB.addEventListener('click', function () { if (link) V.share('Моя визитка — ' + d.n, 'Грузоперевозки: ' + d.n + '. Заказ в WhatsApp:', link); });
+  if (document.getElementById('install')) V.bindInstall(document.getElementById('install'));
+
+  update();
+
+  function bootStatus() {
+    if (!Cld || !Cld.key || !Cld.key() || !Cld.rpc) { go(fromLink && validStep(3) ? 7 : 1); return; }
+    Cld.rpc('vz_me', { p_key: Cld.key() }).then(function (c) {
+      cloud = c;
+      if (c && c.slug) { short = Cld.shortUrl(c.slug); setLink(short); }
+      paintStatus(c, false);
+      var m = moderation(c);
+      if (location.hash === '#pro') { go(8); var pro = document.getElementById('pro'); if (pro) pro.hidden = false; return; }
+      if (m.k === 'pending' || m.k === 'ok' || m.k === 'fix') go(8);
+      else go(1);
+    }, function () { go(1); });
+  }
+  bootStatus();
 })();

@@ -1,9 +1,14 @@
-// ВЕЗУ: Telegram-бот @vezu_orders_bot — уведомления водителям о новых заказах.
+// ВЕЗУ: Telegram-бот @vezu_orders_bot — уведомления водителям и админу.
 // 1) Вебхук Telegram (заголовок X-Telegram-Bot-Api-Secret-Token = vz_tg_webhook_secret):
-//    /start <токен из кабинета> — привязать чат к визитке; /stop — отключить (chat_id удаляется).
-// 2) Уведомление из базы (pg_net, заголовок x-vz-notify = vz_tg_notify_secret): { order, tier: "pro" | "all" }.
-//    Текст без имени и телефона клиента: тип груза, район (без номеров домов), когда, ссылка на ленту.
-// Секреты (токен бота и оба секрета) — в Supabase Vault, читаются через public.vz_tg_secrets() (только service_role).
+//    /start <токен из кабинета> — привязать чат к визитке;
+//    /start admin_<токен из админки> — привязать Telegram админа (30 мин);
+//    /stop — отключить водителя или админа (если чат совпал).
+//    callback: admin:ok:<card> / admin:no:<card> — только из чата админа.
+// 2) Уведомление (заголовок x-vz-notify = vz_tg_notify_secret):
+//    { order, tier } — заказы водителям;
+//    { type: "admin_verify", card } — новая заявка админу;
+//    { type: "driver_verify", card, decide, note? } — решение водителю.
+// Секреты — в Supabase Vault, public.vz_tg_secrets() (только service_role).
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 // Платформа переехала: avtomaster24bot-lab.github.io/dogruz → /vezu/ (03.11.2026). Старый VZ_SITE, если задан, не используем.
@@ -90,9 +95,100 @@ async function notify(order: string, tier: string) {
   return { sent };
 }
 
+async function notifyAdmin(card: string) {
+  const { data: chat } = await db.rpc("vz_tg_admin_chat");
+  if (!chat) { console.log("admin telegram not linked, skip notify"); return { sent: 0, skipped: "not_linked" }; }
+  const { data: c } = await db.from("vz_cards").select("id, slug, phone, city, veh, data").eq("id", card).maybeSingle();
+  if (!c) return { sent: 0, skipped: "no_card" };
+  const { data: v } = await db.from("vz_verify_req").select("plate, created_at").eq("card_id", card).maybeSingle();
+  const d = (c.data ?? {}) as Record<string, unknown>;
+  const name = String(d.n ?? "Водитель");
+  const car = [d.c, d.w, c.veh].filter(Boolean).map(String);
+  const lines = [
+    "🪪 <b>Визитка на проверке</b>",
+    "👤 " + esc(name),
+    "📞 +" + esc(String(c.phone ?? "")),
+  ];
+  if (c.city) lines.push("🏙 " + esc(String(c.city)));
+  if (car.length) lines.push("🚚 " + esc(car.filter((x, i, a) => a.indexOf(x) === i).join(" · ")));
+  if (v && v.plate) lines.push("🔢 Госномер: " + esc(String(v.plate)));
+  const url = c.slug ? SITE + c.slug : SITE + "admin.html";
+  lines.push("", "Открыть визитку: " + url, "Список заявок: " + SITE + "admin.html");
+  const r = await tg("sendMessage", {
+    chat_id: chat,
+    text: lines.join("\n"),
+    parse_mode: "HTML",
+    disable_web_page_preview: true,
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: "✅ Одобрить", callback_data: "admin:ok:" + card },
+          { text: "❌ Отклонить", callback_data: "admin:no:" + card },
+        ],
+        [{ text: "Открыть админку", url: SITE + "admin.html" }],
+      ],
+    },
+  });
+  if (!r.ok) { console.log("admin notify failed", r.error_code || r.description || "unknown"); return { sent: 0 }; }
+  return { sent: 1 };
+}
+
+async function notifyDriver(card: string, decide: string, note?: string) {
+  const { data: t } = await db.from("vz_tg").select("chat_id, enabled").eq("card_id", card).maybeSingle();
+  if (!t || !t.enabled || !t.chat_id) { console.log("driver telegram not linked, skip notify"); return { sent: 0, skipped: "not_linked" }; }
+  const okDecide = decide === "ok";
+  const text = okDecide
+    ? "✅ <b>Ваша визитка одобрена</b>\nЗначок «Одобрена» уже в приложении. Открыть визитку: " + SITE + "app.html#mycard"
+    : "✏️ <b>Визитку нужно исправить</b>\n" + esc((note || "Проверьте данные и фото машины, затем отправьте ещё раз.").slice(0, 200)) + "\nОткрыть: " + SITE + "app.html#mycard";
+  const r = await tg("sendMessage", {
+    chat_id: t.chat_id,
+    text,
+    parse_mode: "HTML",
+    disable_web_page_preview: true,
+    reply_markup: { inline_keyboard: [[{ text: "Моя визитка", url: SITE + "app.html#mycard" }]] },
+  });
+  if (r.ok) return { sent: 1 };
+  if (r.error_code === 403) await db.rpc("vz_tg_unbind_chat", { p_chat: t.chat_id });
+  console.log("driver notify failed", r.error_code || r.description || "unknown");
+  return { sent: 0 };
+}
+
+async function onCallback(q: Record<string, any>) {
+  const id = String(q.id ?? "");
+  const chat = q.message && q.message.chat ? q.message.chat.id : q.from && q.from.id;
+  const data = String(q.data ?? "");
+  const m = data.match(/^admin:(ok|no):([0-9a-f-]{36})$/);
+  const ack = (text: string) => tg("answerCallbackQuery", { callback_query_id: id, text, show_alert: true });
+  if (!m) { if (id) await ack("Неизвестная команда"); return; }
+  const { data: admin } = await db.rpc("vz_tg_admin_chat");
+  if (!admin || Number(chat) !== Number(admin)) { await ack("Нет прав — это только для админа ВЕЗУ"); return; }
+  const decide = m[1], card = m[2];
+  const note = decide === "no" ? "Проверьте данные и фото машины, затем отправьте ещё раз." : "";
+  const upd = decide === "ok"
+    ? { verified_at: new Date().toISOString(), verify_note: "" }
+    : { verify_note: note };
+  const { error } = await db.from("vz_cards").update(upd).eq("id", card);
+  if (error) { console.error("decide", error); await ack("Не удалось сохранить решение"); return; }
+  const { data: files } = await db.storage.from("vz_verify").list(card);
+  if (files && files.length) await db.storage.from("vz_verify").remove(files.map((f: { name: string }) => card + "/" + f.name));
+  await db.from("vz_verify_req").delete().eq("card_id", card);
+  try { await notifyDriver(card, decide, note); } catch (e) { console.log("driver notify error"); }
+  await ack(decide === "ok" ? "Одобрено" : "Отклонено");
+  if (q.message && q.message.chat && q.message.message_id) {
+    await tg("editMessageReplyMarkup", { chat_id: q.message.chat.id, message_id: q.message.message_id, reply_markup: { inline_keyboard: [[{ text: decide === "ok" ? "✅ Одобрено" : "❌ Отклонено", callback_data: "done" }]] } });
+  }
+}
+
 async function onUpdate(u: Record<string, any>) {
+  if (u.callback_query) { try { await onCallback(u.callback_query); } catch (_) { /* ignore */ } return; }
   const m = u.message; if (!m || !m.chat || m.chat.type !== "private") return;
   const chat = m.chat.id as number, text = String(m.text ?? "").trim();
+  const adminStart = text.match(/^\/start\s+admin_([a-f0-9]{32})$/i);
+  if (adminStart) {
+    const { data } = await db.rpc("vz_tg_admin_bind", { p_token: adminStart[1].toLowerCase(), p_chat: chat });
+    if (data) return tg("sendMessage", { chat_id: chat, text: "✅ Telegram админа ВЕЗУ подключён. Сюда будут приходить заявки на проверку визиток — можно одобрить или отклонить прямо в этом чате. Отключить — /stop" });
+    return tg("sendMessage", { chat_id: chat, text: "Ссылка устарела. Откройте админку ВЕЗУ → «Подключить Telegram админа» ещё раз (действует 30 минут)." });
+  }
   const start = text.match(/^\/start(?:\s+([a-f0-9]{32}))?$/i);
   if (start && start[1]) {
     const { data } = await db.rpc("vz_tg_bind", { p_token: start[1].toLowerCase(), p_chat: chat });
@@ -100,10 +196,12 @@ async function onUpdate(u: Record<string, any>) {
     return tg("sendMessage", { chat_id: chat, text: "Ссылка устарела. Откройте кабинет ВЕЗУ → «Уведомления в Telegram» → «Подключить» ещё раз." });
   }
   if (/^\/stop\b/i.test(text)) {
+    const { data: adm } = await db.rpc("vz_tg_admin_unbind", { p_chat: chat });
     const { data } = await db.rpc("vz_tg_unbind_chat", { p_chat: chat });
+    if (adm) return tg("sendMessage", { chat_id: chat, text: "Telegram админа отключён. Заявки больше не будут приходить в этот чат. Подключить снова можно в админке." });
     return tg("sendMessage", { chat_id: chat, text: data ? "Уведомления отключены, ваш Telegram отвязан от визитки." : "Этот Telegram не был подключён к визитке." });
   }
-  return tg("sendMessage", { chat_id: chat, text: "Это бот уведомлений ВЕЗУ для водителей. Подключение — в кабинете визитки: " + SITE + "new.html#pro → «Уведомления в Telegram». Отключить — /stop" });
+  return tg("sendMessage", { chat_id: chat, text: "Это бот уведомлений ВЕЗУ. Водитель подключает его в кабинете визитки: " + SITE + "app.html#settings. Админ — в админке. Отключить — /stop" });
 }
 
 Deno.serve(async (req) => {
@@ -115,6 +213,15 @@ Deno.serve(async (req) => {
   if (!body) return new Response("bad", { status: 400 });
   if (hook && eq(hook, s.vz_tg_webhook_secret ?? "")) { try { await onUpdate(body); } catch (_) { /* Telegram не должен повторять */ } return ok(); }
   if (nt && eq(nt, s.vz_tg_notify_secret ?? "")) {
+    const typ = String(body.type ?? "");
+    if (typ === "admin_verify") {
+      if (!/^[0-9a-f-]{36}$/.test(String(body.card ?? ""))) return new Response("bad", { status: 400 });
+      return ok(await notifyAdmin(String(body.card)));
+    }
+    if (typ === "driver_verify") {
+      if (!/^[0-9a-f-]{36}$/.test(String(body.card ?? "")) || !["ok", "no"].includes(String(body.decide ?? ""))) return new Response("bad", { status: 400 });
+      return ok(await notifyDriver(String(body.card), String(body.decide), body.note ? String(body.note) : undefined));
+    }
     if (!/^[0-9a-f-]{36}$/.test(String(body.order ?? "")) || !["pro", "all", "chosen"].includes(body.tier)) return new Response("bad", { status: 400 });
     return ok(await notify(body.order, body.tier));
   }

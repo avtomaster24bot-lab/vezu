@@ -786,18 +786,21 @@
 
   // ---------- QR ----------
   function makeQR(text) {
+    if (typeof qrcode !== 'function') return null;
     qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
     var q = qrcode(0, 'L'); q.addData(text, 'Byte'); q.make(); return q;
   }
   function qrSvg(text, fg, bg) {
-    var q = makeQR(text), n = q.getModuleCount(), m = 2, path = '';
+    var q = makeQR(text); if (!q) return '';
+    var n = q.getModuleCount(), m = 2, path = '';
     for (var r = 0; r < n; r++) for (var c = 0; c < n; c++) if (q.isDark(r, c)) path += 'M' + (c + m) + ' ' + (r + m) + 'h1v1h-1z';
     var s = n + m * 2;
     return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + s + ' ' + s + '" shape-rendering="crispEdges" role="img" aria-label="' + esc(t('qr_aria')) + '">' +
       '<rect width="' + s + '" height="' + s + '" fill="' + (bg || '#fff') + '"/><path d="' + path + '" fill="' + (fg || '#0b0b1f') + '"/></svg>';
   }
   function qrPng(text, caption, sub) {
-    var q = makeQR(text), n = q.getModuleCount(), quiet = 4, cell = Math.max(8, Math.floor(880 / (n + quiet * 2)));
+    var q = makeQR(text); if (!q) return '';
+    var n = q.getModuleCount(), quiet = 4, cell = Math.max(8, Math.floor(880 / (n + quiet * 2)));
     var qs = (n + quiet * 2) * cell, capH = caption ? 170 : 0;
     var cv = document.createElement('canvas'); cv.width = qs; cv.height = qs + capH;
     var g = cv.getContext('2d');
@@ -1253,7 +1256,8 @@
       '</section>' +
       '<section class="set-sec" id="set-more">' +
         '<h3>Ещё</h3>' +
-        '<a class="btn btn-glass btn-block" href="new.html"><svg><use href="#i-user"></use></svg>Кабинет водителя</a>' +
+        (isDriver() ? '<a class="btn btn-glass btn-block" href="app.html#mycard">🪪 Моя визитка</a>' : '') +
+        '<a class="btn btn-glass btn-block" href="new.html"><svg><use href="#i-user"></use></svg>Визитка: заполнить или исправить</a>' +
         '<button type="button" class="btn btn-glass btn-block" data-install id="set-install"><svg><use href="#i-install"></use></svg>Установить на телефон</button>' +
         '<a class="btn btn-glass btn-block" href="privacy.html">Политика конфиденциальности</a>' +
       '</section>';

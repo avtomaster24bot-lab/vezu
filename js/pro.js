@@ -241,7 +241,7 @@
     }
   };
 
-  box.hidden = false;
+  box.hidden = !!(document.querySelector('.wiz-bar') && location.hash !== '#pro');
   box.innerHTML = '<p class="muted">ВЕЗУ Про…</p>';
   C.ready().then(function (ok) {
     if (!ok) return renderSoon();

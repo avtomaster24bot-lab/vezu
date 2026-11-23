@@ -85,12 +85,12 @@ _cfg=open('js/config.js').read()
 PRO_PRICE=int(_re.search(r'PRO_PRICE:\s*(\d+)',_cfg).group(1)); TRIAL_DAYS=int(_re.search(r'TRIAL_DAYS:\s*(\d+)',_cfg).group(1))
 FMT=lambda n: f'{n:,}'.replace(',', '\u00a0')
 BNAV='''<nav class="bnav" aria-label="Приложение ВЕЗУ">
-  <a href="{p}#order"><svg><use href="#i-box"/></svg><span>Заказ</span></a>
-  <a href="{p}#favs"><svg><use href="#i-fav"/></svg><span>Мои водители</span></a>
-  <button type="button" class="bn-share" data-share="app" aria-label="Поделиться VEZU с друзьями"><i><svg><use href="#i-share"/></svg></i><span>Поделиться</span></button>
-  <a href="{p}#orders"><svg><use href="#i-list"/></svg><span>Мои заказы</span><em hidden>0</em></a>
-  <a href="{p}#feed" class="drv"><svg><use href="#i-feed"/></svg><span>Лента</span><em hidden>0</em></a>
-  <a href="{p}#settings" class="bn-set"><svg><use href="#i-gear"/></svg><span>Настройки</span></a>
+  <a href="{p}#order" class="bn-both"><svg><use href="#i-box"/></svg><span>Заказать</span></a>
+  <a href="{p}#orders" class="bn-cl"><svg><use href="#i-list"/></svg><span>Мои заказы</span><em hidden>0</em></a>
+  <a href="catalog.html" class="bn-cl"><svg><use href="#i-user"/></svg><span>Водители</span></a>
+  <a href="{p}#feed" class="bn-drv"><svg><use href="#i-feed"/></svg><span>Лента</span><em hidden>0</em></a>
+  <a href="{p}#mycard" class="bn-drv"><span class="bn-ico" aria-hidden="true">🪪</span><span>Моя визитка</span></a>
+  <a href="{p}#settings" class="bn-both bn-set"><svg><use href="#i-gear"/></svg><span>Настройки</span></a>
 </nav>
 <script>try{{if(localStorage.getItem('vezu-key'))document.body.classList.add('is-driver')}}catch(e){{}}</script>
 '''
@@ -295,14 +295,15 @@ new=head('Создать визитку водителя — ВЕЗУ','Бесп
 <main class="wrap build" id="build" data-step="1">
   <div class="steps">
     <h1>Визитка водителя <span class="grad-text">за 1 минуту</span></h1>
-    <div class="progress" role="tablist" aria-label="Шаги">
-      <button type="button" data-go="1" role="tab"><i></i><span>1 · О себе</span></button>
-      <button type="button" data-go="2" role="tab"><i></i><span>2 · Машина</span></button>
-      <button type="button" data-go="3" role="tab"><i></i><span>3 · Готово</span></button>
+    <div class="wiz-top">
+      <p class="wiz-k"><span data-wizi>1</span> из 7 · <b data-wizt>Фото</b></p>
+      <div class="wiz-bar" data-wizbar aria-hidden="true"><i></i></div>
     </div>
 
     <form id="f" class="f" novalidate autocomplete="on">
       <section class="step glass f" data-step="1">
+        <h2 class="wiz-h">Фото машины</h2>
+        <p class="muted">Снимите машину или выберите снимок из галереи. Без людей в кадре — так спокойнее и для проверки хватает.</p>
         <div class="photo-row">
           <div class="ph-av" id="phav"><span>?</span></div>
           <div class="ph-act">
@@ -312,105 +313,110 @@ new=head('Создать визитку водителя — ВЕЗУ','Бесп
               <label class="btn btn-glass btn-sm" for="photo-gal">🖼 Выбрать фото из галереи</label>
               <input type="file" id="photo-gal" accept="image/*" class="sr">
             </div>
-            <small class="ph-hint">Фото машины — без людей в кадре. Можно снять камерой или выбрать из галереи.</small>
+            <small class="ph-hint">Фото машины — без людей в кадре.</small>
             <button type="button" class="lnk" id="phdel" hidden>Удалить фото</button>
-            <button type="button" class="info-link" data-info="photo"><svg><use href="#i-info"/></svg>Кто увидит фото?</button>
           </div>
         </div>
-        <label class="fld"><span>Имя *</span><input class="inp" name="n" maxlength="40" placeholder="Например: Ерлан" autocomplete="name" required></label>
-        <label class="fld"><span>Номер WhatsApp *</span><input class="inp" name="p" type="tel" inputmode="tel" placeholder="+7 7__ ___ __ __" autocomplete="tel" required></label>
-        <div class="fld city-f city-f-cab city-show" data-city-display>
-          <span class="cargo-h">Ваш город</span>
-          <p class="city-known-v"><span data-city-label>не выбран</span></p>
-          <p class="fine">В ленте и в Telegram будут заказы только этого города. Меняется в шапке сверху или в настройках.</p>
-          <input type="hidden" name="t" value="">
-        </div>
-        <details class="more">
-          <summary>Ещё (необязательно)</summary>
-          <div class="f">
-            <label class="fld"><span>Telegram</span><input class="inp" name="tg" maxlength="40" placeholder="@username" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
-            <label class="check"><input type="checkbox" id="tgphoto"><span>Показывать фото профиля из Telegram — его увидят клиенты</span></label>
-            <label class="fld"><span>Ссылка на фото (https://…)</span><input class="inp" name="i" type="url" inputmode="url" placeholder="https://…/photo.jpg"></label>
-            <label class="fld"><span>Коротко о себе <em class="counter" id="cnt">0/80</em></span><textarea class="inp" name="m" maxlength="80" rows="2" placeholder="Аккуратно, без опозданий."></textarea></label>
-          </div>
-        </details>
-        <p class="err-msg" id="err1" hidden>Укажите имя, номер WhatsApp и город. Город выбирается в шапке сверху.</p>
-        <button type="button" class="btn btn-grad btn-block" data-next="2">Далее<svg><use href="#i-arrow"/></svg></button>
+        <button type="button" class="btn btn-grad btn-block" data-next="2">Далее</button>
       </section>
 
-      <section class="step glass f" data-step="2">
+      <section class="step glass f" data-step="2" hidden>
+        <h2 class="wiz-h">Как к вам обращаться</h2>
+        <label class="fld"><span>Имя *</span><input class="inp" name="n" maxlength="40" placeholder="Например: Ерлан" autocomplete="name" required></label>
+        <div class="wiz-nav">
+          <button type="button" class="btn btn-glass" data-next="1">Назад</button>
+          <button type="button" class="btn btn-grad" data-next="3">Далее</button>
+        </div>
+      </section>
+
+      <section class="step glass f" data-step="3" hidden>
+        <h2 class="wiz-h">Телефон WhatsApp</h2>
+        <p class="muted">По этому номеру клиент напишет или позвонит.</p>
+        <label class="fld"><span>Номер WhatsApp *</span><input class="inp" name="p" type="tel" inputmode="tel" placeholder="+7 7__ ___ __ __" autocomplete="tel" required></label>
+        <div class="wiz-nav">
+          <button type="button" class="btn btn-glass" data-next="2">Назад</button>
+          <button type="button" class="btn btn-grad" data-next="4">Далее</button>
+        </div>
+      </section>
+
+      <section class="step glass f" data-step="4" hidden>
+        <h2 class="wiz-h">Машина и тоннаж</h2>
         <div class="fld"><span>Ваша машина</span><div class="veh-grid" id="veh">{VEH}</div></div>
         <label class="fld"><span>Марка / модель</span><input class="inp" name="c" list="cars" maxlength="40" placeholder="Газель"></label>
         <div class="fld"><span>Грузоподъёмность</span><div class="qchips" id="cap"></div></div>
-        <div class="fld"><span>Что возите</span><div class="qchips" id="svc"></div></div>
-        <div class="row2">
-          <label class="fld"><span>Цена от <button type="button" class="info-i" data-info="pricefrom" aria-label="Что значит «цена от»"><svg><use href="#i-info"/></svg></button></span><input class="inp" name="pr" inputmode="numeric" placeholder="8 000"><b class="suffix">₸</b></label>
-          <div class="fld"><span>За</span><div class="qchips seg" id="pu"><button type="button" class="qchip" data-v="0">поездку</button><button type="button" class="qchip" data-v="1">час</button></div></div>
-        </div>
-        <details class="more">
-          <summary>Ещё (необязательно)</summary>
-          <div class="f">
-            <div class="fld"><span>Часы работы</span>
-              <div class="hours">
-                <select class="inp" name="hs" aria-label="С"></select><span class="muted">—</span><select class="inp" name="he" aria-label="До"></select>
-                <button type="button" class="qchip" id="h24">24/7</button>
-              </div>
-            </div>
-            <label class="fld"><span>Районы / направления</span><input class="inp" name="z" maxlength="60" placeholder="Весь город, пригород, межгород"></label>
-            <div class="fld"><span>Есть с собой</span><div class="qchips" id="ex"></div></div>
-            <div class="fld"><span>Оплата</span><div class="qchips" id="pay"></div></div>
-          </div>
-        </details>
-        <details class="more" id="rates">
-          <summary>Мои тарифы для калькулятора цены</summary>
-          <div class="f">
-            <p class="muted">Клиент видит <b>примерную</b> цену по вашим тарифам: минимальный заказ + км × тариф + грузчики + этажи. Пустое поле — тариф ВЕЗУ по умолчанию (в подсказке, если задан). Без минимального заказа и тарифов за км цена не считается — клиенты увидят только расстояние.</p>
-            <div class="rates-g">
-              <label class="fld"><span>Минимальный заказ</span><input class="inp" name="rt0" inputmode="numeric" maxlength="7"><b class="suffix">₸</b></label>
-              <label class="fld"><span>Входит в минимум</span><input class="inp" name="rt5" inputmode="numeric" maxlength="3"><b class="suffix">км</b></label>
-              <label class="fld"><span>Км по городу</span><input class="inp" name="rt1" inputmode="numeric" maxlength="5"><b class="suffix">₸</b></label>
-              <label class="fld"><span>Км межгород</span><input class="inp" name="rt2" inputmode="numeric" maxlength="5"><b class="suffix">₸</b></label>
-              <label class="fld"><span>Грузчик</span><input class="inp" name="rt3" inputmode="numeric" maxlength="6"><b class="suffix">₸</b></label>
-              <label class="fld"><span>Этаж без лифта</span><input class="inp" name="rt4" inputmode="numeric" maxlength="6"><b class="suffix">₸</b></label>
-            </div>
-            <button type="button" class="lnk" id="rtreset">Очистить</button>
-          </div>
-        </details>
-        <div class="navrow">
-          <button type="button" class="btn btn-glass" data-next="1">← Назад</button>
-          <button type="button" class="btn btn-grad" data-next="3">Готово<svg><use href="#i-arrow"/></svg></button>
+        <label class="fld"><span>Госномер (если есть на фото)</span><input class="inp" name="plate" maxlength="12" placeholder="123ABC02" autocapitalize="characters"></label>
+        <div class="wiz-nav">
+          <button type="button" class="btn btn-glass" data-next="3">Назад</button>
+          <button type="button" class="btn btn-grad" data-next="5">Далее</button>
         </div>
       </section>
+
+      <section class="step glass f" data-step="5" hidden>
+        <h2 class="wiz-h">Что возите</h2>
+        <p class="muted">Отметьте услуги — можно несколько.</p>
+        <div class="fld"><span>Услуги</span><div class="qchips" id="svc"></div></div>
+        <div class="wiz-nav">
+          <button type="button" class="btn btn-glass" data-next="4">Назад</button>
+          <button type="button" class="btn btn-grad" data-next="6">Далее</button>
+        </div>
+      </section>
+
+      <section class="step glass f" data-step="6" hidden>
+        <h2 class="wiz-h">Город</h2>
+        <div class="fld city-f city-f-cab city-show" data-city-display>
+          <p class="city-known-v"><span data-city-label>не выбран</span></p>
+          <p class="fine">Тот же город, что в шапке приложения. Нажмите на город сверху, чтобы сменить.</p>
+          <input type="hidden" name="t" value="">
+        </div>
+        <div class="wiz-nav">
+          <button type="button" class="btn btn-glass" data-next="5">Назад</button>
+          <button type="button" class="btn btn-grad" data-next="7">Далее</button>
+        </div>
+      </section>
+
+      <section class="step glass f" data-step="7" hidden>
+        <h2 class="wiz-h">Отправить на проверку</h2>
+        <p class="muted">Проверьте данные и отправьте. Админ посмотрит визитку; статус «На проверке» появится сразу.</p>
+        <div id="sendsum" class="send-sum"></div>
+        <div id="consbox"></div>
+        <p class="err-msg" id="err1" hidden>Заполните обязательные поля.</p>
+        <button type="button" class="btn btn-grad btn-block" id="sendcard">Отправить</button>
+        <button type="button" class="btn btn-glass btn-block" data-next="6">Назад</button>
+      </section>
+
+      <div id="extra" hidden>
+        <input type="hidden" name="pr" value="">
+        <input type="hidden" name="i" value="">
+        <input type="hidden" name="m" value="">
+        <input type="hidden" name="z" value="">
+        <input type="hidden" name="tg" value="">
+        <input type="hidden" name="rt0" value=""><input type="hidden" name="rt1" value=""><input type="hidden" name="rt2" value="">
+        <input type="hidden" name="rt3" value=""><input type="hidden" name="rt4" value=""><input type="hidden" name="rt5" value="">
+        <select name="hs" hidden></select><select name="he" hidden></select>
+        <div id="pu"><button type="button" data-v="0"></button><button type="button" data-v="1"></button></div>
+        <div id="ex"></div><div id="pay"></div><div id="themes"></div>
+        <input type="checkbox" id="tgphoto">
+        <span id="cnt"></span>
+        <div id="h24"></div>
+      </div>
     </form>
 
-    <section class="step glass f" data-step="3" id="result">
-      <div class="fld"><span>Цвет визитки</span><div class="themes" id="themes"></div></div>
-      <div id="rbody" class="f">
-        <div class="linkrow">
-          <input class="inp" id="link" readonly aria-label="Ссылка на визитку">
-          <button class="btn btn-glass" type="button" id="copy" aria-label="Копировать ссылку"><svg><use href="#i-link"/></svg></button>
-        </div>
-        <div class="res-grid">
-          <div class="qr" id="qr"></div>
-          <div class="res-btns">
-            <a class="btn btn-grad btn-sm" id="open" href="#" target="_blank" rel="noopener">Открыть визитку</a>
-            <button class="btn btn-glass btn-sm" type="button" id="share"><svg><use href="#i-share"/></svg>Отправить</button>
-            <button class="btn btn-glass btn-sm" type="button" id="png"><svg><use href="#i-down"/></svg>QR в PNG</button>
-          </div>
-        </div>
-        <button type="button" class="info-link" data-info="qr"><svg><use href="#i-info"/></svg>Зачем QR-код и как его использовать</button>
-        <div class="btns">
-          <button class="btn btn-glass btn-sm" type="button" id="pcards" style="flex:1"><svg><use href="#i-print"/></svg>Визитки A4</button>
-          <button class="btn btn-glass btn-sm" type="button" id="psticker" style="flex:1"><svg><use href="#i-print"/></svg>Наклейка на авто</button>
-        </div>
-        <div class="btns">
-          <button class="btn btn-glass btn-sm" type="button" id="install" hidden style="flex:1"><svg><use href="#i-install"/></svg>Установить на телефон</button>
-          <button type="button" class="info-link" data-info="install"><svg><use href="#i-info"/></svg>Зачем устанавливать</button>
-        </div>
-        <a class="tlink" href="tarify.html">Печать под ключ и тарифы →</a>
+    <section class="step glass f" data-step="8" id="sent" hidden>
+      <div id="sentbox"></div>
+      <div id="rbody" hidden>
+        <input class="inp" id="link" readonly>
+        <a id="open" href="#" target="_blank" rel="noopener"></a>
+        <div id="qr"></div>
+        <button type="button" id="copy" hidden></button>
+        <button type="button" id="share" hidden></button>
+        <button type="button" id="png" hidden></button>
+        <button type="button" id="pcards" hidden></button>
+        <button type="button" id="psticker" hidden></button>
+        <button type="button" id="install" hidden></button>
       </div>
       <section class="pro-box" id="pro" hidden></section>
-      <button type="button" class="btn btn-glass btn-block" data-next="2">← Изменить данные</button>
+      <p class="fine" style="margin-top:16px"><button type="button" class="lnk" data-next="1">Изменить данные и отправить снова</button>
+      · <a href="app.html#settings">Настройки и дополнительно</a></p>
     </section>
   </div>
 
@@ -591,10 +597,14 @@ app=head('Заказ перевозки — ВЕЗУ','Опишите груз �
     <div id="feedst"></div>
     <div id="feedl" class="ord-list" aria-live="polite"></div>
   </section>
+  <section data-tab="mycard" hidden>
+    <h1>Моя <span class="grad-text">визитка</span></h1>
+    <div id="mycardb"><p class="muted">Загружаю…</p></div>
+  </section>
 </main>
 {BN('')}<p class="wrap narrow set-foot"><button type="button" class="btn btn-glass btn-block" data-open-settings>⚙️ Настройки</button></p>
 <p class="wrap narrow fine legal-foot"><a href="privacy.html">Политика конфиденциальности</a></p>
-{SCRIPTS('js/common.js','js/calc.js','js/config.js','js/cloud.js','js/favs.js','js/cab.js','js/share.js','js/app.js')}</body>
+{SCRIPTS('js/vendor/qrcode.js','js/common.js','js/calc.js','js/config.js','js/cloud.js','js/favs.js','js/cab.js','js/share.js','js/app.js')}</body>
 </html>
 '''
 open('app.html','w').write(app)

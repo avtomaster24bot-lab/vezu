@@ -4,7 +4,7 @@
   var V = window.VEZU, C = window.VZC, F = window.VEZU_FAV, CAB = window.VEZU_CAB;
   function esc(s) { return V.esc(s == null ? '' : String(s)); }
   function $(s, r) { return (r || document).querySelector(s); }
-  var tabs = ['order', 'favs', 'orders', 'feed'], cur = '';
+  var tabs = ['order', 'favs', 'orders', 'feed', 'mycard'], cur = '';
   var POLL = 20000, timer = 0;
 
   // устройство клиента: случайный токен на телефоне, в базе — только хэш
@@ -32,6 +32,46 @@
   function mapLink(c) { return c && c.a && c.b ? 'https://www.google.com/maps/dir/?api=1&origin=' + c.a.lat + ',' + c.a.lon + '&destination=' + c.b.lat + ',' + c.b.lon + '&travelmode=driving' : ''; }
 
   // ---------- вкладки ----------
+
+  function drawMyCard() {
+    var box = $('#mycardb'); if (!box) return;
+    if (!C.key()) {
+      box.innerHTML = '<div class="empty glass"><h2>Пока нет визитки</h2><p class="muted">Соберите её по шагам: фото, телефон, машина — и отправьте на проверку. Это займёт пару минут.</p><a class="btn btn-grad" href="new.html">Создать визитку</a></div>';
+      return;
+    }
+    box.innerHTML = '<p class="muted">Загружаю…</p>';
+    C.rpc('vz_me', { p_key: C.key() }).then(function (c) {
+      try {
+      var d = V.clean((c && c.d) || {});
+      var pending = !!(c && c.verify_pending), ok = !!(c && c.verified_at), fix = !!(c && c.verify_note && !pending && !ok);
+      var badge = pending ? ['pending', 'На проверке'] : ok ? ['ok', 'Одобрена'] : fix ? ['fix', 'Нужно исправить'] : ['none', 'Не отправлена'];
+      var url = c && c.slug ? C.shortUrl(c.slug) : (d.n && d.p ? V.cardUrl(d) : '');
+      var note = fix ? '<p class="muted">Комментарий админа: ' + esc(c.verify_note) + '</p>' : '';
+      var wa = d.p ? V.waLink(d.p, 'Здравствуйте! Пишу по визитке ВЕЗУ.') : '#';
+      box.innerHTML = '<p class="st-badge ' + badge[0] + '">' + esc(badge[1]) + '</p>' +
+        (pending ? '<p class="muted">✅ Визитка отправлена на проверку. Когда админ решит, статус обновится.</p>' : '') +
+        note +
+        '<div class="mycard-pv glass">' + V.cardHero(d, true, { local: true }) + '</div>' +
+        (url ? '<div class="mycard-qr" id="mycardqr">' + (V.qrSvg ? V.qrSvg(url) : '') + '</div><p class="fine" id="mycardlink">' + esc(url) + '</p>' : '') +
+        '<div class="res-btns" style="display:grid;gap:8px;margin-top:12px">' +
+          (url ? '<button type="button" class="btn btn-grad btn-block" data-mc="share"><svg><use href="#i-share"/></svg>Поделиться</button>' : '') +
+          (url ? '<button type="button" class="btn btn-glass btn-block" data-mc="copy">Скопировать ссылку</button>' : '') +
+          (d.p ? '<a class="btn btn-wa btn-block" href="' + esc(wa) + '" target="_blank" rel="noopener"><svg><use href="#i-wa"/></svg>WhatsApp</a>' : '') +
+          '<a class="btn btn-glass btn-block" href="new.html">' + (pending || ok || fix ? 'Изменить и отправить снова' : 'Заполнить и отправить') + '</a>' +
+        '</div>';
+      box.onclick = function (e) {
+        var b = e.target.closest('[data-mc]'); if (!b || !url) return;
+        if (b.dataset.mc === 'share') V.share('Моя визитка — ' + (d.n || 'ВЕЗУ'), 'Грузоперевозки: ' + (d.n || '') + '. Заказ в WhatsApp:', url);
+        if (b.dataset.mc === 'copy') V.copy(url);
+      };
+      } catch (err) {
+        box.innerHTML = '<div class="empty glass"><h2>Не удалось показать визитку</h2><p class="muted">' + esc(err && err.message) + '</p><a class="btn btn-grad" href="new.html">Открыть конструктор</a></div>';
+      }
+    }, function (e) {
+      box.innerHTML = '<div class="empty glass"><h2>Не удалось загрузить</h2><p class="muted">' + esc(e.message) + '</p><a class="btn btn-grad" href="new.html">Открыть конструктор</a></div>';
+    });
+  }
+
   function show(t) {
     var openSet = (t === 'settings');
     if (openSet) t = (cur && tabs.indexOf(cur) >= 0) ? cur : (C.key() ? 'feed' : 'order');
@@ -46,6 +86,7 @@
     if (t === 'orders') loadOrders();
     if (t === 'feed') { ensureSoundUi(); loadFeed(); }
     if (t === 'order') drawTargets();
+    if (t === 'mycard') drawMyCard();
     clearInterval(timer);
     if (t === 'orders' || t === 'feed') timer = setInterval(function () { if (!document.hidden) (t === 'orders' ? loadOrders : loadFeed)(true); }, POLL);
     if (!openSet) window.scrollTo(0, 0);
@@ -521,9 +562,11 @@
   }
   if (C.key()) document.body.classList.add('is-driver');
   F.on(function () { if (cur === 'favs') drawFavs(); });
+  show(location.hash.slice(1) || 'order');
   C.ready().then(function (ok) {
-    if (!ok) { $('#app').insertAdjacentHTML('afterbegin', '<p class="err-msg">Нет связи с сервером ВЕЗУ — заказ можно отправить сразу в WhatsApp.</p>'); }
-    show(location.hash.slice(1) || 'order'); badges();
+    if (!ok) { var root = $('#app') || document.querySelector('main'); if (root) root.insertAdjacentHTML('afterbegin', '<p class="err-msg">Нет связи с сервером ВЕЗУ — заказ можно отправить сразу в WhatsApp.</p>'); }
+    if (cur) show(cur);
+    badges();
     setInterval(function () { if (!document.hidden) badges(); }, POLL * 3);
   });
 })();
