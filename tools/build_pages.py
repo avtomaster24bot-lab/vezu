@@ -43,14 +43,11 @@ FOOT='''<footer class="foot">
   </div>
 </footer>
 '''
-CITY_FIELDS='''    <div class="fld city-f" data-city-pick data-city-default="Караганда" data-city-remember="order">
-      <span class="cargo-h">Город заказа *</span>
-      <p class="fine">Заказ увидят водители этого города. Для межгорода укажите город, откуда везёте.</p>
-      <div class="qchips city-chips" role="group" aria-label="Город"></div>
+CITY_FIELDS='''    <div class="fld city-f city-show" data-city-display>
+      <span class="cargo-h">Город заказа</span>
+      <p class="city-known-v"><span data-city-label>не выбран</span></p>
+      <p class="fine">Заказ увидят водители этого города. Город меняется в шапке сверху или в настройках.</p>
       <input type="hidden" name="city" value="">
-      <label class="fld city-other" hidden><span>Название города</span><input class="inp" name="city_other" maxlength="40" placeholder="Например: Темиртау"></label>
-      <button type="button" class="lnk city-gps" data-city-gps>Определить город по геопозиции</button>
-      <p class="fine city-gps-msg" data-city-gps-msg hidden></p>
     </div>
 '''
 ORDER_FIELDS='''    <label class="fld"><span class="sr">Что везём</span><input class="inp" name="what" placeholder="{ph_what}" data-i18n-ph="what" maxlength="120"></label>
@@ -318,14 +315,11 @@ new=head('Создать визитку водителя — ВЕЗУ','Бесп
         </div>
         <label class="fld"><span>Имя *</span><input class="inp" name="n" maxlength="40" placeholder="Например: Ерлан" autocomplete="name" required></label>
         <label class="fld"><span>Номер WhatsApp *</span><input class="inp" name="p" type="tel" inputmode="tel" placeholder="+7 7__ ___ __ __" autocomplete="tel" required></label>
-        <div class="fld city-f city-f-cab" data-city-pick data-city-name="t" data-city-required>
-          <span class="cargo-h">Ваш город *</span>
-          <p class="fine">В ленте и в Telegram будут заказы только этого города. Без города общие заказы не приходят.</p>
-          <div class="qchips city-chips" role="group" aria-label="Город"></div>
+        <div class="fld city-f city-f-cab city-show" data-city-display>
+          <span class="cargo-h">Ваш город</span>
+          <p class="city-known-v"><span data-city-label>не выбран</span></p>
+          <p class="fine">В ленте и в Telegram будут заказы только этого города. Меняется в шапке сверху или в настройках.</p>
           <input type="hidden" name="t" value="">
-          <label class="fld city-other" hidden><span>Название города</span><input class="inp" name="t_other" maxlength="40" placeholder="Например: Темиртау"></label>
-          <button type="button" class="lnk city-gps" data-city-gps>Определить город по геопозиции</button>
-          <p class="fine city-gps-msg" data-city-gps-msg hidden></p>
         </div>
         <details class="more">
           <summary>Ещё (необязательно)</summary>
@@ -336,7 +330,7 @@ new=head('Создать визитку водителя — ВЕЗУ','Бесп
             <label class="fld"><span>Коротко о себе <em class="counter" id="cnt">0/80</em></span><textarea class="inp" name="m" maxlength="80" rows="2" placeholder="Аккуратно, без опозданий."></textarea></label>
           </div>
         </details>
-        <p class="err-msg" id="err1" hidden>Укажите имя, номер WhatsApp и город.</p>
+        <p class="err-msg" id="err1" hidden>Укажите имя, номер WhatsApp и город. Город выбирается в шапке сверху.</p>
         <button type="button" class="btn btn-grad btn-block" data-next="2">Далее<svg><use href="#i-arrow"/></svg></button>
       </section>
 
@@ -535,8 +529,7 @@ cat=head('Водители ВЕЗУ — каталог грузоперевоз�
   <h1>Водители <span class="grad-text">ВЕЗУ</span> <small class="muted" id="cnt"></small></h1>
   <p class="muted lead2">Пишите водителю напрямую в WhatsApp — без посредников и комиссий.</p>
   <section class="filters glass f" id="filters">
-    <label class="fld"><span>Город</span><input class="inp" id="city" list="citylist" placeholder="Любой город" maxlength="40"></label>
-    <datalist id="citylist"></datalist>
+    <p class="city-cat-h" id="citytitle"></p>
     <div class="fld"><span>Машина</span><div class="qchips" id="vehf"></div></div>
     <div class="fld"><span>Что нужно</span><div class="qchips" id="svcf"></div></div>
     <div class="qchips"><button type="button" class="qchip qfree" data-free aria-pressed="false"><i></i>Только свободные</button><a class="qchip" href="app.html#favs">★ Мои водители</a></div>

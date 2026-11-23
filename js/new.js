@@ -12,8 +12,16 @@
 
   var TEXT = ['n', 't', 'c', 'i', 'm', 'z', 'tg'];
   TEXT.forEach(function (k) { if (state[k] && f.elements[k]) f.elements[k].value = state[k]; });
-  if (V.bindCityPickers) V.bindCityPickers(f);
-  if (state.t && f.querySelector('[data-city-pick]') && f.querySelector('[data-city-pick]')._cityPick) f.querySelector('[data-city-pick]')._cityPick.set(state.t);
+  function syncCabCity() {
+    var city = (V.getCity && V.getCity()) || '';
+    if (city) { state.t = city; if (f.elements.t) f.elements.t.value = city; }
+    var lab = f.querySelector('[data-city-label]');
+    if (lab) lab.textContent = city || 'не выбран';
+  }
+  if (!state.t && V.getCity) state.t = V.getCity() || state.t;
+  syncCabCity();
+  if (V.onCityChange) V.onCityChange(syncCabCity);
+  document.addEventListener('vezu-city', syncCabCity);
   if (state.tg) f.elements.tg.value = '@' + state.tg;
   if (state.p) f.elements.p.value = V.fmtPhone(state.p);
   if (state.pr) f.elements.pr.value = V.fmtNum(state.pr);
@@ -101,13 +109,15 @@
 
   // ---- шаги ----
   var step = 1;
-  function valid1() { return !!(f.elements.n.value.trim() && V.normPhone(phone.value) && V.normCity(f.elements.t.value || (f.elements.t_other && f.elements.t_other.value) || '')); }
+  function cabCity() { return V.normCity((V.getCity && V.getCity()) || (f.elements.t && f.elements.t.value) || state.t || ''); }
+  function valid1() { return !!(f.elements.n.value.trim() && V.normPhone(phone.value) && cabCity()); }
   function go(n) {
     if (n > 1 && !valid1()) {
       n = 1; document.getElementById('err1').hidden = false;
-      var miss = !f.elements.n.value.trim() ? f.elements.n : !V.normPhone(phone.value) ? phone : (f.querySelector('[data-city-pick]') || f.elements.t);
+      var miss = !f.elements.n.value.trim() ? f.elements.n : !V.normPhone(phone.value) ? phone : (f.querySelector('[data-city-display]') || f.elements.t);
       if (miss && miss.classList) miss.classList.add('bad');
       if (miss && miss.focus) miss.focus();
+      if (!cabCity() && V.openCitySheet) V.openCitySheet();
     }
     step = n; build.dataset.step = n;
     document.querySelectorAll('.progress [data-go]').forEach(function (b) {
@@ -132,7 +142,7 @@
     state.rt = rt.join('').length ? rt.join(',') : '';
     state.hs = hs.value; state.he = he.value;
     d = V.clean(state);
-    if (valid1()) { document.getElementById('err1').hidden = true; f.elements.n.classList.remove('bad'); phone.classList.remove('bad'); var cp = f.querySelector('[data-city-pick]'); if (cp) cp.classList.remove('bad'); }
+    if (valid1()) { document.getElementById('err1').hidden = true; f.elements.n.classList.remove('bad'); phone.classList.remove('bad'); var cp = f.querySelector('[data-city-display]'); if (cp) cp.classList.remove('bad'); }
     document.getElementById('cnt').textContent = (state.m || '').length + '/80';
     on(cap, function (b) { return b.dataset.v === state.w; });
     on(svc, function (b) { return (state.s || '').indexOf(b.dataset.i) >= 0; });

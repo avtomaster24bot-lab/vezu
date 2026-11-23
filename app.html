@@ -25,7 +25,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="VEZU">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="css/style.css?v=e680cd5d">
+<link rel="stylesheet" href="css/style.css?v=7e4e0fe3">
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -91,14 +91,11 @@
       <button type="button" class="qchip" data-cargo="trash" aria-pressed="false">Вывоз мусора</button>
       <button type="button" class="qchip" data-cargo="other" aria-pressed="false">Другое</button>
     </div></div>
-    <div class="fld city-f" data-city-pick data-city-default="Караганда" data-city-remember="order">
-      <span class="cargo-h">Город заказа *</span>
-      <p class="fine">Заказ увидят водители этого города. Для межгорода укажите город, откуда везёте.</p>
-      <div class="qchips city-chips" role="group" aria-label="Город"></div>
+    <div class="fld city-f city-show" data-city-display>
+      <span class="cargo-h">Город заказа</span>
+      <p class="city-known-v"><span data-city-label>не выбран</span></p>
+      <p class="fine">Заказ увидят водители этого города. Город меняется в шапке сверху или в настройках.</p>
       <input type="hidden" name="city" value="">
-      <label class="fld city-other" hidden><span>Название города</span><input class="inp" name="city_other" maxlength="40" placeholder="Например: Темиртау"></label>
-      <button type="button" class="lnk city-gps" data-city-gps>Определить город по геопозиции</button>
-      <p class="fine city-gps-msg" data-city-gps-msg hidden></p>
     </div>
     <label class="fld"><span class="sr">Что везём</span><input class="inp" name="what" placeholder="Что везём? Например: диван и 10 коробок" data-i18n-ph="what" maxlength="120"></label>
     <div class="route">
@@ -155,13 +152,13 @@
 <script>try{if(localStorage.getItem('vezu-key'))document.body.classList.add('is-driver')}catch(e){}</script>
 <p class="wrap narrow set-foot"><button type="button" class="btn btn-glass btn-block" data-open-settings>⚙️ Настройки</button></p>
 <p class="wrap narrow fine legal-foot"><a href="privacy.html">Политика конфиденциальности</a></p>
-<script src="js/common.js?v=7e74862d"></script>
+<script src="js/common.js?v=cbdda660"></script>
 <script src="js/calc.js?v=d481bd68"></script>
 <script src="js/config.js?v=566bab7b"></script>
 <script src="js/cloud.js?v=5d62877b"></script>
 <script src="js/favs.js?v=610baa8d"></script>
-<script src="js/cab.js?v=92d1e828"></script>
+<script src="js/cab.js?v=e1fef01f"></script>
 <script src="js/share.js?v=f44bf895"></script>
-<script src="js/app.js?v=1765f8c7"></script>
+<script src="js/app.js?v=96b7f672"></script>
 </body>
 </html>

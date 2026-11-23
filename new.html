@@ -25,7 +25,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="VEZU">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="css/style.css?v=e680cd5d">
+<link rel="stylesheet" href="css/style.css?v=7e4e0fe3">
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -95,14 +95,11 @@
         </div>
         <label class="fld"><span>Имя *</span><input class="inp" name="n" maxlength="40" placeholder="Например: Ерлан" autocomplete="name" required></label>
         <label class="fld"><span>Номер WhatsApp *</span><input class="inp" name="p" type="tel" inputmode="tel" placeholder="+7 7__ ___ __ __" autocomplete="tel" required></label>
-        <div class="fld city-f city-f-cab" data-city-pick data-city-name="t" data-city-required>
-          <span class="cargo-h">Ваш город *</span>
-          <p class="fine">В ленте и в Telegram будут заказы только этого города. Без города общие заказы не приходят.</p>
-          <div class="qchips city-chips" role="group" aria-label="Город"></div>
+        <div class="fld city-f city-f-cab city-show" data-city-display>
+          <span class="cargo-h">Ваш город</span>
+          <p class="city-known-v"><span data-city-label>не выбран</span></p>
+          <p class="fine">В ленте и в Telegram будут заказы только этого города. Меняется в шапке сверху или в настройках.</p>
           <input type="hidden" name="t" value="">
-          <label class="fld city-other" hidden><span>Название города</span><input class="inp" name="t_other" maxlength="40" placeholder="Например: Темиртау"></label>
-          <button type="button" class="lnk city-gps" data-city-gps>Определить город по геопозиции</button>
-          <p class="fine city-gps-msg" data-city-gps-msg hidden></p>
         </div>
         <details class="more">
           <summary>Ещё (необязательно)</summary>
@@ -113,7 +110,7 @@
             <label class="fld"><span>Коротко о себе <em class="counter" id="cnt">0/80</em></span><textarea class="inp" name="m" maxlength="80" rows="2" placeholder="Аккуратно, без опозданий."></textarea></label>
           </div>
         </details>
-        <p class="err-msg" id="err1" hidden>Укажите имя, номер WhatsApp и город.</p>
+        <p class="err-msg" id="err1" hidden>Укажите имя, номер WhatsApp и город. Город выбирается в шапке сверху.</p>
         <button type="button" class="btn btn-grad btn-block" data-next="2">Далее<svg><use href="#i-arrow"/></svg></button>
       </section>
 
@@ -213,14 +210,14 @@
 
 <script src="js/vendor/qrcode.js?v=fbb6b69b"></script>
 <script src="js/vendor/inflate.js?v=4970705c"></script>
-<script src="js/common.js?v=7e74862d"></script>
+<script src="js/common.js?v=cbdda660"></script>
 <script src="js/calc.js?v=d481bd68"></script>
 <script src="js/config.js?v=566bab7b"></script>
 <script src="js/cloud.js?v=5d62877b"></script>
-<script src="js/new.js?v=1006bb95"></script>
+<script src="js/new.js?v=49f44ca5"></script>
 <script src="js/pay.js?v=d2520fb9"></script>
 <script src="js/sticker.js?v=2a33929e"></script>
-<script src="js/cab.js?v=92d1e828"></script>
+<script src="js/cab.js?v=e1fef01f"></script>
 <script src="js/pro.js?v=29e0bb24"></script>
 </body>
 </html>

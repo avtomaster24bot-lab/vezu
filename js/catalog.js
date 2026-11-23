@@ -2,8 +2,8 @@
 (function () {
   'use strict';
   var V = window.VEZU, C = window.VZC;
-  var list = document.getElementById('list'), f = document.getElementById('filters'), city = document.getElementById('city');
-  var st = { veh: '', svc: null, free: false }, seq = 0, timer = 0;
+  var list = document.getElementById('list'), f = document.getElementById('filters');
+  var st = { veh: '', svc: null, free: false }, seq = 0;
 
   document.getElementById('vehf').innerHTML = '<button type="button" class="qchip on" data-veh="">Все</button>' +
     V.VEHICLES.map(function (v) { return '<button type="button" class="qchip" data-veh="' + v.k + '">' + V.esc(v.l) + '</button>'; }).join('');
@@ -27,14 +27,28 @@
       '<a class="btn btn-glass btn-sm" data-call="' + V.esc(r.slug) + '" href="tel:+' + d.p + '"><svg><use href="#i-phone"/></svg>Позвонить</a></div></article>';
   }
   var rows = {};
+  function currentCity() { return (V.getCity && V.getCity()) || ''; }
+  function paintTitle() {
+    var el = document.getElementById('citytitle');
+    if (!el) return;
+    var c = currentCity();
+    el.textContent = c ? ('Водители в городе «' + c + '»') : 'Выберите город в шапке — покажем водителей этого города.';
+  }
   function load() {
     var my = ++seq;
+    paintTitle();
+    var city = currentCity();
+    if (!city) {
+      list.innerHTML = '<div class="cat-empty glass"><h2>Сначала выберите город</h2><p class="muted">Список водителей зависит от города в шапке. Нажмите «📍 Выбрать город» сверху.</p><button type="button" class="btn btn-grad" data-open-city>Выбрать город</button></div>';
+      document.getElementById('cnt').textContent = '';
+      return;
+    }
     list.innerHTML = '<p class="muted cat-msg">Загружаем…</p>';
-    C.rpc('vz_catalog', { p_city: city.value.trim(), p_veh: st.veh, p_service: st.svc, p_limit: 60, p_offset: 0, p_free: st.free }).then(function (r) {
+    C.rpc('vz_catalog', { p_city: city, p_veh: st.veh, p_service: st.svc, p_limit: 60, p_offset: 0, p_free: st.free }).then(function (r) {
       if (my !== seq) return;
       rows = {}; (r || []).forEach(function (x) { rows[x.slug] = x; });
       list.innerHTML = r && r.length ? r.map(item).join('') :
-        '<div class="cat-empty glass"><h2>Пока никого не нашли</h2><p class="muted">Попробуйте убрать фильтры. Вы водитель? Добавьте себя в каталог — 7 дней Про бесплатно.</p><a class="btn btn-grad" href="new.html">Создать визитку</a></div>';
+        '<div class="cat-empty glass"><h2>Пока никого не нашли</h2><p class="muted">В городе «' + V.esc(city) + '» пока нет водителей в каталоге. Вы водитель? Добавьте себя — 7 дней Про бесплатно.</p><a class="btn btn-grad" href="new.html">Создать визитку</a></div>';
       document.getElementById('cnt').textContent = r && r.length ? r.length + ' ' + plural(r.length) : '';
     }, function (e) { if (my === seq) list.innerHTML = '<p class="err-msg cat-msg">' + V.esc(e.message) + '</p>'; });
   }
@@ -48,7 +62,6 @@
     load();
   });
   if (window.VEZU_FAV) window.VEZU_FAV.bind(list, function (slug) { var r = rows[slug]; return r && window.VEZU_FAV.info(slug, V.clean(r.d), r.photo ? C.photoUrl(r.photo) : ''); });
-  city.addEventListener('input', function () { clearTimeout(timer); timer = setTimeout(load, 350); });
   list.addEventListener('click', function (e) {
     var a = e.target.closest('[data-wa],[data-call]'); if (!a) return;
     var r = rows[a.dataset.wa || a.dataset.call]; if (!r) return;
@@ -65,10 +78,7 @@
         '<div class="btns"><a class="btn btn-grad" href="./">Заказать перевозку</a><a class="btn btn-glass" href="new.html">Я водитель</a></div></div>';
       return;
     }
-    C.rpc('vz_catalog_cities', {}).then(function (cs) {
-      document.getElementById('citylist').innerHTML = (cs || []).map(function (c) { return '<option>' + V.esc(c) + '</option>'; }).join('');
-    }, function () {});
-    var q = new URLSearchParams(location.search); if (q.get('city')) city.value = q.get('city');
+    document.addEventListener('vezu-city', load);
     load();
   });
 })();

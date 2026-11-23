@@ -52,6 +52,9 @@
     if (openSet && V.openSettings) V.openSettings();
   }
   window.addEventListener('hashchange', function () { show(location.hash.slice(1)); });
+  document.addEventListener('vezu-city', function () {
+    if (cur === 'feed') loadFeed();
+  });
   document.addEventListener('visibilitychange', function () { if (!document.hidden) badges(); });
 
   // ---------- заказ ----------
@@ -90,7 +93,7 @@
     var err = $('#oerr'); err.hidden = true;
     var g = function (n) { var i = form.querySelector('[name=' + n + ']'); return i ? i.value.trim() : ''; };
     var phone = V.normPhone(g('cp'));
-    var o = { what: g('what'), cargo: g('cargo'), from: g('from'), to: g('to'), when: g('when'), note: g('note'), name: g('cn'), phone: phone || '', city: (V.normCity ? V.normCity(g('city') || g('city_other')) : g('city')) };
+    var o = { what: g('what'), cargo: g('cargo'), from: g('from'), to: g('to'), when: g('when'), note: g('note'), name: g('cn'), phone: phone || '', city: (V.getCity && V.getCity()) || (V.normCity ? V.normCity(g('city')) : g('city')) };
     var at = g('at'); if (at) { var d = new Date(at); if (!isNaN(d)) o.when_at = d.toISOString(); }
     var c = form._calc ? JSON.parse(JSON.stringify(form._calc)) : {}; delete c.how;
     var pr = +g('price').replace(/\D/g, ''); if (pr) c.price = pr;
@@ -98,7 +101,7 @@
     o.calc = c;
     var fail = function (t) { err.textContent = t; err.hidden = false; err.scrollIntoView({ block: 'center', behavior: 'smooth' }); };
     if (!o.what && !o.from) return fail('Напишите, что везём и откуда.');
-    if (!o.city) return fail('Выберите город заказа — заказ увидят водители этого города.');
+    if (!o.city) { if (V.openCitySheet) V.openCitySheet(); return fail('Выберите город в шапке — заказ увидят водители этого города.'); }
     if (!phone) return fail('Укажите телефон — его увидит только водитель, которого вы выберете.');
     var slugs = target === 'all' ? null : target === 'fav' ? F.list().map(function (f) { return f.slug; }) : Object.keys(picked);
     if (slugs && !slugs.length) return fail('Отметьте хотя бы одного водителя.');
@@ -444,15 +447,15 @@
       '</b><span>С «Про» — сразу, и в Telegram тоже первым. Подключить →</span></a>';
   }
   function cityNeed() {
-    var m = feedMeta; if (!m || !m.needs_city) return '';
-    return '<div class="empty glass city-need"><h2>Укажите свой город</h2><p class="muted">Лента показывает только заказы вашего города. Сейчас город в визитке не выбран — общие заказы скрыты. Личные заказы (когда клиент выбрал вас) будут видны.</p><button type="button" class="btn btn-grad" data-open-settings="city">Выбрать город в настройках</button></div>';
+    if (V.getCity && V.getCity()) return '';
+    return '<div class="empty glass city-need"><p class="muted">Чтобы видеть заказы своего города, выберите город в шапке сверху.</p><button type="button" class="btn btn-grad" data-open-city>Выбрать город</button></div>';
   }
   function loadFeed(quiet) {
     var box = $('#feedl');
     if (!C.key()) { box.innerHTML = '<div class="empty glass"><h2>Лента — для водителей</h2><p class="muted">Сохраните визитку в облаке ВЕЗУ — и здесь появятся заказы клиентов. Откликайтесь «Беру» со своей ценой.</p><a class="btn btn-grad" href="new.html">Создать визитку</a></div>'; $('#feedst').innerHTML = ''; return; }
     if (!quiet && !lastFeed) box.innerHTML = '<p class="muted">Загружаю заказы…</p>';
     if (!myCard) C.rpc('vz_me', { p_key: C.key() }).then(function (c) { myCard = c; var st = $('#feedst'); if (c && CAB) { st.innerHTML = '<section class="glass cab-sec">' + CAB.statusHtml(c.status) + '</section>'; } }, function () {});
-    C.rpc('vz_feed_meta', { p_key: C.key() }).then(function (m) { feedMeta = m; if (lastFeed) drawFeed(); }, function () {});
+    C.rpc('vz_feed_meta', { p_key: C.key() }).then(function (m) { feedMeta = m; if (m && m.needs_city && V.getCity && V.getCity() && V.setCity) V.setCity(V.getCity()); if (lastFeed) drawFeed(); }, function () {});
     C.rpc('vz_feed', { p_key: C.key() }).then(function (a) { lastFeed = a || []; drawFeed(); seenFeed(); noticeNew(a || []); }, function (e) { if (!quiet) box.innerHTML = '<p class="err-msg">' + esc(e.message) + '</p>'; });
   }
   function drawFeed() {

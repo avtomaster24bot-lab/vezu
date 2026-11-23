@@ -882,7 +882,7 @@
     opts = opts || {};
     bindGeo(form);
     bindCityPickers(form);
-    if (!opts.city) opts.city = function () { var i = form.querySelector('[name=city], [name=t]'); return i ? normCity(i.value) : ''; };
+    if (!opts.city) opts.city = function () { return getCity() || (function () { var i = form.querySelector('[name=city], [name=t]'); return i ? normCity(i.value) : ''; })(); };
     if (window.VEZU_CALC && !opts.noCalc) window.VEZU_CALC.bind(form, opts);
     form.querySelectorAll('[data-fill]').forEach(function (b) {
       b.addEventListener('click', function () {
@@ -981,15 +981,37 @@
   }
 
 
-  // ---------- город в шапке и экран «Настройки» ----------
-  var driverCityCache = null, settingsSheet = null, settingsSaving = false;
-  function rememberedCity() {
-    try { return normCity(localStorage.getItem('vezu-city-order') || localStorage.getItem('vezu-city') || ''); } catch (e) { return ''; }
+
+  // ---------- один город на всё приложение ----------
+  var CITY_KEY = 'vezu_city';
+  var appCity = null;           // null — ещё не читали, '' — не выбран, иначе название
+  var driverCityCache = null, settingsSheet = null, citySheet = null, citySaving = false;
+  var citySubs = [];
+
+  function readStoredCity() {
+    try {
+      var v = normCity(localStorage.getItem(CITY_KEY) || localStorage.getItem('vezu-city') || localStorage.getItem('vezu-city-order') || '');
+      if (v) {
+        try { if (!localStorage.getItem(CITY_KEY)) localStorage.setItem(CITY_KEY, v); } catch (e) {}
+      }
+      return v;
+    } catch (e) { return ''; }
   }
-  function persistChosenCity(v) {
+  function getCity() {
+    if (appCity != null) return appCity;
+    appCity = readStoredCity();
+    return appCity;
+  }
+  function persistCity(v) {
     v = normCity(v);
-    if (!v) return '';
-    try { localStorage.setItem('vezu-city', v); localStorage.setItem('vezu-city-order', v); } catch (e) {}
+    appCity = v;
+    try {
+      if (v) {
+        localStorage.setItem(CITY_KEY, v);
+        localStorage.setItem('vezu-city', v);
+        localStorage.setItem('vezu-city-order', v);
+      }
+    } catch (e) {}
     try {
       var card = JSON.parse(localStorage.getItem('vezu-card') || 'null');
       if (card && typeof card === 'object') { card.t = v; localStorage.setItem('vezu-card', JSON.stringify(card)); }
@@ -999,24 +1021,41 @@
   function isDriver() {
     try { return !!(window.VZC && VZC.key && VZC.key()); } catch (e) { return false; }
   }
-  function knownCity() {
-    if (isDriver()) return driverCityCache != null ? driverCityCache : rememberedCity();
-    return rememberedCity();
+  function onCityChange(fn) { if (typeof fn === 'function') citySubs.push(fn); }
+  function notifyCity(v) {
+    citySubs.forEach(function (fn) { try { fn(v); } catch (e) {} });
+    try { document.dispatchEvent(new CustomEvent('vezu-city', { detail: { city: v } })); } catch (e) {}
   }
+  function setCity(v, opts) {
+    opts = opts || {};
+    v = normCity(v);
+    var prev = getCity();
+    persistCity(v);
+    paintCityUi();
+    if (isDriver() && v && !opts.skipSave) saveDriverCity(v);
+    if (v !== prev || opts.force) notifyCity(v);
+    return v;
+  }
+  function knownCity() { return getCity(); }
+  function rememberedCity() { return getCity(); }
+  function cityChanged(v, opts) { return setCity(v, opts); }
+
   function loadDriverCity() {
-    if (!isDriver() || !window.VZC.rpc) return Promise.resolve(knownCity());
+    if (!isDriver() || !window.VZC.rpc) return Promise.resolve(getCity());
     return window.VZC.rpc('vz_me', { p_key: window.VZC.key() }).then(function (c) {
       var t = normCity((c && c.d && c.d.t) || (c && c.city) || '');
       driverCityCache = t;
-      if (t) persistChosenCity(t);
-      return t;
-    }, function () { return knownCity(); });
+      var local = getCity();
+      if (!local && t) setCity(t, { skipSave: true });
+      else if (local && t !== local) saveDriverCity(local);
+      return getCity();
+    }, function () { return getCity(); });
   }
   function saveDriverCity(v) {
     v = normCity(v);
-    if (!isDriver() || !v || !window.VZC.rpc || settingsSaving) return Promise.resolve();
+    if (!isDriver() || !v || !window.VZC.rpc || citySaving) return Promise.resolve();
     if (driverCityCache && driverCityCache === v) return Promise.resolve();
-    settingsSaving = true;
+    citySaving = true;
     var Cld = window.VZC, cons = (Cld.ls && Cld.ls('vezu-consent-driver')) || (CONSENT.driver && CONSENT.driver.v) || 'driver_v1';
     return Cld.rpc('vz_me', { p_key: Cld.key() }).then(function (c) {
       if (!c || !c.d) throw new Error('Сначала сохраните визитку в облаке');
@@ -1030,75 +1069,118 @@
       });
     }).then(function () {
       driverCityCache = v;
-      persistChosenCity(v);
-      settingsSaving = false;
-      toast('Город сохранён в визитке');
+      citySaving = false;
     }, function (e) {
-      settingsSaving = false;
-      toast((e && e.message) || 'Не удалось сохранить город');
+      citySaving = false;
+      toast((e && e.message) || 'Не удалось сохранить город в визитке');
     });
   }
+
   function paintCityChip() {
     var b = document.getElementById('citychip');
     if (!b) return;
-    var city = knownCity();
+    var city = getCity();
     var name = b.querySelector('[data-city-chip-name]');
     if (name) name.textContent = city || 'Выбрать город';
-    b.setAttribute('aria-label', city ? ('Ваш город: ' + city + '. Открыть настройки') : 'Выбрать город. Открыть настройки');
+    b.setAttribute('aria-label', city ? ('Ваш город: ' + city + '. Нажмите, чтобы сменить') : 'Выбрать город');
     b.classList.toggle('is-empty', !city);
   }
+  function paintCityDisplays() {
+    var city = getCity();
+    document.querySelectorAll('[data-city-label]').forEach(function (el) { el.textContent = city || 'не выбран'; });
+    document.querySelectorAll('[data-city-display] input[type=hidden], [data-city-display] [name="city"], [data-city-display] [name="t"]').forEach(function (i) { i.value = city; });
+    paintCityChip();
+  }
+  function paintCityUi() { paintCityDisplays(); }
   function ensureCityChip() {
     if (document.getElementById('citychip')) return;
     var wrap = document.querySelector('header.top .wrap');
     if (!wrap) return;
-    if (document.querySelector('main.admin, #adm, main.tarify')) return;
-    if (!document.querySelector('[data-city-pick], main.app, #build, .build')) return;
+    if (document.querySelector('main.admin, #adm, main.tarify, .legal')) return;
+    if (!document.querySelector('[data-city-display], [data-city-pick], main.app, main.catalog, #build, .build')) return;
     var b = document.createElement('button');
     b.type = 'button';
     b.id = 'citychip';
     b.className = 'city-chip';
-    b.setAttribute('data-open-settings', 'city');
+    b.setAttribute('data-open-city', '');
     b.innerHTML = '📍 <span data-city-chip-name>Выбрать город</span> <span class="city-chip-c" aria-hidden="true">▾</span>';
     var nav = wrap.querySelector('.topnav, .lang');
     if (nav) wrap.insertBefore(b, nav);
     else wrap.appendChild(b);
     paintCityChip();
   }
-  function compactCityPickers() {
-    var city = knownCity();
-    document.querySelectorAll('[data-city-pick]').forEach(function (box) {
-      if (box.hasAttribute('data-city-full') || box.closest('.sheet-settings')) return;
-      var row = box.querySelector('.city-known');
-      if (!row) {
-        row = document.createElement('div');
-        row.className = 'city-known';
-        var h = box.querySelector('.cargo-h');
-        if (h && h.nextSibling) box.insertBefore(row, h.nextSibling);
-        else box.insertBefore(row, box.firstChild);
+
+  function openCitySheet() {
+    if (citySheet) { try { citySheet.close(); } catch (e) {} citySheet = null; }
+    var cur = getCity();
+    var html = '<label class="fld city-search-f"><span class="sr">Найти город</span><input class="inp" name="q" type="search" placeholder="Найти город" autocomplete="off"></label>' +
+      '<div class="city-sheet-list" role="listbox" aria-label="Города"></div>' +
+      '<div class="city-other-row" hidden>' +
+        '<label class="fld"><span>Название города</span><input class="inp" name="other" maxlength="40" placeholder="Например: Темиртау"></label>' +
+        '<button type="button" class="btn btn-grad btn-block" data-other-go>Сохранить этот город</button>' +
+      '</div>' +
+      '<button type="button" class="lnk city-gps" data-gps>Определить город по геопозиции</button>' +
+      '<p class="fine city-gps-msg" data-gps-msg hidden></p>';
+    var sh = sheet('Ваш город', html, 'sheet-city');
+    citySheet = sh;
+    var list = sh.el.querySelector('.city-sheet-list');
+    var q = sh.el.querySelector('[name=q]');
+    var otherRow = sh.el.querySelector('.city-other-row');
+    var otherInp = sh.el.querySelector('[name=other]');
+    function render() {
+      var s = (q.value || '').trim().toLowerCase().replace(/ё/g, 'е');
+      var items = CITIES.filter(function (c) { return !s || c.toLowerCase().replace(/ё/g, 'е').indexOf(s) >= 0; });
+      var otherOn = !!(cur && CITIES.indexOf(cur) < 0);
+      list.innerHTML = items.map(function (c) {
+        var on = c === cur;
+        return '<button type="button" class="city-opt' + (on ? ' on' : '') + '" data-city="' + esc(c) + '" role="option" aria-selected="' + on + '">' + esc(c) + (on ? ' <span class="ok">✓</span>' : '') + '</button>';
+      }).join('') +
+        '<button type="button" class="city-opt' + (otherOn ? ' on' : '') + '" data-city="__other" role="option">Другой город' + (otherOn ? ' <span class="ok">✓</span>' : '') + '</button>';
+    }
+    render();
+    q.addEventListener('input', render);
+    list.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-city]'); if (!b) return;
+      if (b.dataset.city === '__other') {
+        otherRow.hidden = false;
+        otherInp.value = (cur && CITIES.indexOf(cur) < 0) ? cur : '';
+        otherInp.focus({ preventScroll: true });
+        return;
       }
-      box.classList.toggle('city-compact', !!city);
-      if (city) {
-        row.hidden = false;
-        row.innerHTML = '<p class="city-known-v">Ваш город: <b></b></p><button type="button" class="lnk" data-open-settings="city">Изменить в настройках</button>';
-        row.querySelector('b').textContent = city;
-        if (box._cityPick) box._cityPick.set(city, false);
-      } else {
-        row.hidden = true;
-        row.innerHTML = '';
-      }
+      setCity(b.dataset.city);
+      sh.close();
     });
+    sh.el.querySelector('[data-other-go]').addEventListener('click', function () {
+      var v = normCity(otherInp.value);
+      if (!v) { toast('Напишите название города'); otherInp.focus(); return; }
+      setCity(v);
+      sh.close();
+    });
+    var gpsBtn = sh.el.querySelector('[data-gps]'), gpsMsg = sh.el.querySelector('[data-gps-msg]');
+    if (gpsBtn) gpsBtn.addEventListener('click', function () {
+      if (!navigator.geolocation) { if (gpsMsg) { gpsMsg.hidden = false; gpsMsg.textContent = 'Геопозиция недоступна — выберите город из списка.'; } return; }
+      gpsBtn.disabled = true;
+      if (gpsMsg) { gpsMsg.hidden = false; gpsMsg.textContent = 'Определяю город…'; }
+      navigator.geolocation.getCurrentPosition(function (pos) {
+        var url = 'https://nominatim.openstreetmap.org/reverse?format=jsonv2&accept-language=ru&zoom=10&addressdetails=1&lat=' + pos.coords.latitude + '&lon=' + pos.coords.longitude;
+        fetch(url).then(function (r) { return r.json(); }).then(function (j) {
+          gpsBtn.disabled = false;
+          var cty = extractCity(j);
+          if (!cty) { if (gpsMsg) gpsMsg.textContent = 'Не удалось определить город — выберите из списка.'; return; }
+          setCity(cty);
+          sh.close();
+        }, function () { gpsBtn.disabled = false; if (gpsMsg) gpsMsg.textContent = 'Не удалось определить город — выберите из списка.'; });
+      }, function () {
+        gpsBtn.disabled = false;
+        if (gpsMsg) { gpsMsg.hidden = false; gpsMsg.textContent = 'Разрешите доступ к геопозиции или выберите город из списка.'; }
+      }, { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 });
+    });
+    var prev = sh.close;
+    sh.close = function () { citySheet = null; prev(); };
+    try { sessionStorage.setItem('vezu_city_prompted', '1'); } catch (e) {}
+    return sh;
   }
-  function cityChanged(v, opts) {
-    opts = opts || {};
-    v = normCity(v);
-    if (!v) return;
-    if (isDriver()) {
-      if (!opts.skipSave) saveDriverCity(v);
-      else { driverCityCache = v; persistChosenCity(v); }
-    } else persistChosenCity(v);
-    paintCityChip();
-    compactCityPickers();
-  }
+
   function soundLabel() {
     if (window.VEZU_SOUND && VEZU_SOUND.label) return VEZU_SOUND.label();
     var on = false;
@@ -1113,11 +1195,7 @@
     b.setAttribute('aria-pressed', /: вкл$/.test(lab) ? 'true' : 'false');
   }
   function toggleSoundFromSettings() {
-    if (window.VEZU_SOUND && VEZU_SOUND.toggle) {
-      VEZU_SOUND.toggle();
-      paintSettingsSound();
-      return;
-    }
+    if (window.VEZU_SOUND && VEZU_SOUND.toggle) { VEZU_SOUND.toggle(); paintSettingsSound(); return; }
     var on = false;
     try { on = JSON.parse(localStorage.getItem('vezu-feed-sound') || 'false') === true; } catch (e) {}
     try { localStorage.setItem('vezu-feed-sound', JSON.stringify(!on)); } catch (e) {}
@@ -1135,8 +1213,8 @@
       if (!st || !st.linked) {
         return window.VZC.rpc('vz_tg_link', { p_key: window.VZC.key() }).then(function (tok) {
           el.innerHTML = '<p class="muted">Пока приложение закрыто, новые заказы вашего города придут в Telegram.</p>' +
-            (st && st.city ? '<p class="fine">Город визитки: «' + esc(st.city) + '».</p>' : '<p class="fine">Сначала укажите город выше, иначе общие заказы не придут.</p>') +
-            '<a class="btn btn-tg btn-block" href="https://t.me/' + esc((st && st.bot) || 'vezu_orders_bot') + '?start=' + esc(tok) + '" target="_blank" rel="noopener" data-set-tggo><svg><use href="#i-tg"></use></svg>Подключить Telegram</a>' +
+            (getCity() ? '<p class="fine">Город: «' + esc(getCity()) + '».</p>' : '<p class="fine">Сначала выберите город в шапке, иначе общие заказы не придут.</p>') +
+            '<a class="btn btn-tg btn-block" href="https://t.me/' + esc((st && st.bot) || 'vezu_orders_bot') + '?start=' + esc(tok) + '" target="_blank" rel="noopener"><svg><use href="#i-tg"></use></svg>Подключить Telegram</a>' +
             '<p class="fine">Откроется бот — нажмите «Старт». Ссылка действует 30 минут.</p>';
         });
       }
@@ -1147,19 +1225,15 @@
   }
   function openSettings(section) {
     if (settingsSheet) { settingsSheet.close(); settingsSheet = null; }
-    var city = knownCity();
+    var city = getCity();
     var langNow = (window.VEZU && VEZU.lang && VEZU.lang()) || savedLang();
     var html = '' +
       '<section class="set-sec" id="set-city">' +
         '<h3>Город</h3>' +
-        '<p class="muted">' + (isDriver() ? 'Лента показывает заказы этого города. Он же уйдёт в визитку.' : 'Заказ увидят водители этого города.') + '</p>' +
-        '<div class="fld city-f" data-city-pick data-city-full data-city-name="set_city">' +
-          '<div class="qchips city-chips" role="group" aria-label="Город"></div>' +
-          '<input type="hidden" name="set_city" value="">' +
-          '<label class="fld city-other" hidden><span>Название города</span><input class="inp" name="set_city_other" maxlength="40" placeholder="Например: Темиртау"></label>' +
-          '<button type="button" class="lnk city-gps" data-city-gps>Определить город по геопозиции</button>' +
-          '<p class="fine city-gps-msg" data-city-gps-msg hidden></p>' +
-        '</div>' +
+        '<p class="muted">Один город на всё приложение: лента, заказ и список водителей. Меняется здесь или по нажатию на город в шапке.</p>' +
+        '<button type="button" class="set-city-row" data-open-city>' +
+          '<span>Сейчас</span><strong data-city-label>' + esc(city || 'не выбран') + '</strong><em>Изменить</em>' +
+        '</button>' +
       '</section>' +
       '<section class="set-sec" id="set-sound">' +
         '<h3>Звук заказов</h3>' +
@@ -1185,11 +1259,6 @@
       '</section>';
     var sh = sheet('Настройки', html, 'sheet-settings');
     settingsSheet = sh;
-    var pick = bindCityPicker(sh.el.querySelector('[data-city-pick]'), {
-      value: city,
-      onChange: function (v) { if (v) cityChanged(v); }
-    });
-    if (city && pick) pick.set(city, false);
     paintSettingsSound();
     fillSettingsTg(sh.el.querySelector('[data-set-tg]'));
     var inst = sh.el.querySelector('#set-install');
@@ -1214,10 +1283,7 @@
         else if (history.length > 1) history.back();
       }
     };
-    if (section === 'city') {
-      var el = sh.el.querySelector('#set-city');
-      if (el) setTimeout(function () { el.scrollIntoView({ block: 'start', behavior: 'smooth' }); }, 80);
-    }
+    if (section === 'city') openCitySheet();
     return sh;
   }
   function openSettingsFrom(section, ev) {
@@ -1226,16 +1292,25 @@
     if (sh && location.hash && location.hash !== '#settings') sh._back = location.hash;
     return sh;
   }
+  function maybePromptCity() {
+    if (getCity()) return;
+    try { if (sessionStorage.getItem('vezu_city_prompted') === '1') return; } catch (e) {}
+    if (!document.getElementById('citychip')) return;
+    openCitySheet();
+  }
   function initCityUi() {
     ensureCityChip();
-    var go = function () { paintCityChip(); compactCityPickers(); };
+    paintCityUi();
+    var go = function () { paintCityUi(); maybePromptCity(); };
     if (isDriver()) loadDriverCity().then(go); else go();
   }
   document.addEventListener('click', function (e) {
+    var cityBtn = e.target.closest && e.target.closest('[data-open-city], #citychip');
+    if (cityBtn) { e.preventDefault(); e.stopPropagation(); openCitySheet(); return; }
     var b = e.target.closest && e.target.closest('[data-open-settings]');
     if (b) { e.preventDefault(); openSettingsFrom(b.getAttribute('data-open-settings') || '', e); return; }
     var a = e.target.closest && e.target.closest('a[href$="#settings"], a[href="#settings"]');
-    if (a) { e.preventDefault(); openSettingsFrom('city', e); }
+    if (a) { e.preventDefault(); openSettingsFrom('', e); }
   });
   function bootCityUi() { setTimeout(initCityUi, 0); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bootCityUi);
@@ -1252,7 +1327,7 @@
     services: services, initials: initials, metaLine: metaLine, hoursText: hoursText, isOpen: isOpen, almatyHour: almatyHour, priceText: priceText, cardHero: cardHero, statusInfo: statusInfo, reviewsOn: reviewsOn, CONSENT: CONSENT, CARGO: CARGO, cargoLabel: cargoLabel, consentHtml: consentHtml, consentGate: consentGate, plural: plural, hhmm: hhmm, cardDetails: cardDetails, applyTheme: applyTheme,
     qrSvg: qrSvg, qrPng: qrPng, vcf: vcf, contactIntent: contactIntent, addContact: addContact, download: download, fileName: fileName,
     CITIES: CITIES, normCity: normCity, cityViewbox: cityViewbox, bindCityPicker: bindCityPicker, bindCityPickers: bindCityPickers,
-    knownCity: knownCity, rememberedCity: rememberedCity, cityChanged: cityChanged, openSettings: openSettings, paintCityChip: paintCityChip,
+    getCity: getCity, setCity: setCity, knownCity: knownCity, rememberedCity: rememberedCity, cityChanged: cityChanged, openCitySheet: openCitySheet, openSettings: openSettings, paintCityChip: paintCityChip, onCityChange: onCityChange,
     toast: toast, copy: copy, share: share, bindOrderForm: bindOrderForm, bindInstall: bindInstall, cardManifest: cardManifest
   };
 })();
