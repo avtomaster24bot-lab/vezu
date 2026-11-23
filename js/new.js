@@ -97,13 +97,17 @@
   // ---- фото с телефона: хранится только на этом устройстве ----
   var phav = document.getElementById('phav'), phdel = document.getElementById('phdel');
   function photo() { try { return JSON.parse(localStorage.getItem(PKEY) || 'null'); } catch (e) { return null; } }
-  document.getElementById('photo').addEventListener('change', function (e) {
+  function onPhotoFile(e) {
     var file = e.target.files && e.target.files[0]; if (!file) return;
     V.resizePhoto(file, 256).then(function (img) {
       try { localStorage.setItem(PKEY, JSON.stringify({ p: V.normPhone(phone.value), img: img })); localStorage.removeItem('vezu-photo-del'); } catch (er) { V.toast('Не удалось сохранить фото'); return; }
       V.toast('Фото сохранено на этом телефоне'); update();
     }, function () { V.toast('Не получилось открыть фото — попробуйте другое'); });
     e.target.value = '';
+  }
+  ['photo-cam', 'photo-gal', 'photo'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('change', onPhotoFile);
   });
   phdel.addEventListener('click', function () { var x = photo(); localStorage.removeItem(PKEY); if (x && x.up) localStorage.setItem('vezu-photo-del', '1'); update(); });
 

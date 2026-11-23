@@ -306,9 +306,13 @@ new=head('Создать визитку водителя — ВЕЗУ','Бесп
         <div class="photo-row">
           <div class="ph-av" id="phav"><span>?</span></div>
           <div class="ph-act">
-            <label class="btn btn-glass btn-sm" for="photo"><svg><use href="#i-cam"/></svg>Загрузить фото</label>
-            <input type="file" id="photo" accept="image/*" class="sr">
-            <small class="ph-hint">Фото машины — без людей в кадре</small>
+            <div class="ph-btns">
+              <label class="btn btn-glass btn-sm" for="photo-cam"><svg><use href="#i-cam"/></svg>Снять фото</label>
+              <input type="file" id="photo-cam" accept="image/*" capture="environment" class="sr">
+              <label class="btn btn-glass btn-sm" for="photo-gal">🖼 Выбрать фото из галереи</label>
+              <input type="file" id="photo-gal" accept="image/*" class="sr">
+            </div>
+            <small class="ph-hint">Фото машины — без людей в кадре. Можно снять камерой или выбрать из галереи.</small>
             <button type="button" class="lnk" id="phdel" hidden>Удалить фото</button>
             <button type="button" class="info-link" data-info="photo"><svg><use href="#i-info"/></svg>Кто увидит фото?</button>
           </div>
