@@ -479,9 +479,11 @@
       if (otherWrap) otherWrap.hidden = v !== '__other';
       if (v === '__other' && otherInp && fromUser) otherInp.focus({ preventScroll: true });
       var fin = current();
-      if (v !== '__other') { hid.value = fin; persist(fin); }
+      if (v !== '__other') hid.value = fin;
+      if (fromUser && fin) persist(fin);
       if (fromUser) hid.dispatchEvent(new Event('change', { bubbles: true }));
       if (opts.onChange) opts.onChange(fin);
+      if (fromUser && fin && window.VEZU && VEZU.cityChanged) VEZU.cityChanged(fin);
     }
     chips.addEventListener('click', function (e) {
       var b = e.target.closest('[data-city]'); if (!b) return;
@@ -978,6 +980,267 @@
     });
   }
 
+
+  // ---------- город в шапке и экран «Настройки» ----------
+  var driverCityCache = null, settingsSheet = null, settingsSaving = false;
+  function rememberedCity() {
+    try { return normCity(localStorage.getItem('vezu-city-order') || localStorage.getItem('vezu-city') || ''); } catch (e) { return ''; }
+  }
+  function persistChosenCity(v) {
+    v = normCity(v);
+    if (!v) return '';
+    try { localStorage.setItem('vezu-city', v); localStorage.setItem('vezu-city-order', v); } catch (e) {}
+    try {
+      var card = JSON.parse(localStorage.getItem('vezu-card') || 'null');
+      if (card && typeof card === 'object') { card.t = v; localStorage.setItem('vezu-card', JSON.stringify(card)); }
+    } catch (e) {}
+    return v;
+  }
+  function isDriver() {
+    try { return !!(window.VZC && VZC.key && VZC.key()); } catch (e) { return false; }
+  }
+  function knownCity() {
+    if (isDriver()) return driverCityCache != null ? driverCityCache : rememberedCity();
+    return rememberedCity();
+  }
+  function loadDriverCity() {
+    if (!isDriver() || !window.VZC.rpc) return Promise.resolve(knownCity());
+    return window.VZC.rpc('vz_me', { p_key: window.VZC.key() }).then(function (c) {
+      var t = normCity((c && c.d && c.d.t) || (c && c.city) || '');
+      driverCityCache = t;
+      if (t) persistChosenCity(t);
+      return t;
+    }, function () { return knownCity(); });
+  }
+  function saveDriverCity(v) {
+    v = normCity(v);
+    if (!isDriver() || !v || !window.VZC.rpc || settingsSaving) return Promise.resolve();
+    if (driverCityCache && driverCityCache === v) return Promise.resolve();
+    settingsSaving = true;
+    var Cld = window.VZC, cons = (Cld.ls && Cld.ls('vezu-consent-driver')) || (CONSENT.driver && CONSENT.driver.v) || 'driver_v1';
+    return Cld.rpc('vz_me', { p_key: Cld.key() }).then(function (c) {
+      if (!c || !c.d) throw new Error('Сначала сохраните визитку в облаке');
+      var d = {};
+      Object.keys(c.d).forEach(function (k) { d[k] = c.d[k]; });
+      d.t = v;
+      return Cld.rpc('vz_save_card', {
+        p_key: Cld.key(), p_data: d, p_slug: c.slug || null,
+        p_veh: (window.VEZU && VEZU.vehicle && VEZU.vehicle(d)) || '',
+        p_published: c.is_published !== false, p_consent: cons
+      });
+    }).then(function () {
+      driverCityCache = v;
+      persistChosenCity(v);
+      settingsSaving = false;
+      toast('Город сохранён в визитке');
+    }, function (e) {
+      settingsSaving = false;
+      toast((e && e.message) || 'Не удалось сохранить город');
+    });
+  }
+  function paintCityChip() {
+    var b = document.getElementById('citychip');
+    if (!b) return;
+    var city = knownCity();
+    var name = b.querySelector('[data-city-chip-name]');
+    if (name) name.textContent = city || 'Выбрать город';
+    b.setAttribute('aria-label', city ? ('Ваш город: ' + city + '. Открыть настройки') : 'Выбрать город. Открыть настройки');
+    b.classList.toggle('is-empty', !city);
+  }
+  function ensureCityChip() {
+    if (document.getElementById('citychip')) return;
+    var wrap = document.querySelector('header.top .wrap');
+    if (!wrap) return;
+    if (document.querySelector('main.admin, #adm, main.tarify')) return;
+    if (!document.querySelector('[data-city-pick], main.app, #build, .build')) return;
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.id = 'citychip';
+    b.className = 'city-chip';
+    b.setAttribute('data-open-settings', 'city');
+    b.innerHTML = '📍 <span data-city-chip-name>Выбрать город</span> <span class="city-chip-c" aria-hidden="true">▾</span>';
+    var nav = wrap.querySelector('.topnav, .lang');
+    if (nav) wrap.insertBefore(b, nav);
+    else wrap.appendChild(b);
+    paintCityChip();
+  }
+  function compactCityPickers() {
+    var city = knownCity();
+    document.querySelectorAll('[data-city-pick]').forEach(function (box) {
+      if (box.hasAttribute('data-city-full') || box.closest('.sheet-settings')) return;
+      var row = box.querySelector('.city-known');
+      if (!row) {
+        row = document.createElement('div');
+        row.className = 'city-known';
+        var h = box.querySelector('.cargo-h');
+        if (h && h.nextSibling) box.insertBefore(row, h.nextSibling);
+        else box.insertBefore(row, box.firstChild);
+      }
+      box.classList.toggle('city-compact', !!city);
+      if (city) {
+        row.hidden = false;
+        row.innerHTML = '<p class="city-known-v">Ваш город: <b></b></p><button type="button" class="lnk" data-open-settings="city">Изменить в настройках</button>';
+        row.querySelector('b').textContent = city;
+        if (box._cityPick) box._cityPick.set(city, false);
+      } else {
+        row.hidden = true;
+        row.innerHTML = '';
+      }
+    });
+  }
+  function cityChanged(v, opts) {
+    opts = opts || {};
+    v = normCity(v);
+    if (!v) return;
+    if (isDriver()) {
+      if (!opts.skipSave) saveDriverCity(v);
+      else { driverCityCache = v; persistChosenCity(v); }
+    } else persistChosenCity(v);
+    paintCityChip();
+    compactCityPickers();
+  }
+  function soundLabel() {
+    if (window.VEZU_SOUND && VEZU_SOUND.label) return VEZU_SOUND.label();
+    var on = false;
+    try { on = JSON.parse(localStorage.getItem('vezu-feed-sound') || 'false') === true; } catch (e) {}
+    return on ? '🔔 Звук заказов: вкл' : '🔔 Звук заказов: выкл';
+  }
+  function paintSettingsSound() {
+    var b = document.getElementById('setsnd');
+    if (!b) return;
+    var lab = soundLabel();
+    b.textContent = lab;
+    b.setAttribute('aria-pressed', /: вкл$/.test(lab) ? 'true' : 'false');
+  }
+  function toggleSoundFromSettings() {
+    if (window.VEZU_SOUND && VEZU_SOUND.toggle) {
+      VEZU_SOUND.toggle();
+      paintSettingsSound();
+      return;
+    }
+    var on = false;
+    try { on = JSON.parse(localStorage.getItem('vezu-feed-sound') || 'false') === true; } catch (e) {}
+    try { localStorage.setItem('vezu-feed-sound', JSON.stringify(!on)); } catch (e) {}
+    paintSettingsSound();
+    toast(!on ? 'Звук заказов включён — откройте ленту, чтобы услышать уведомление' : 'Звук заказов выключен');
+  }
+  function fillSettingsTg(el) {
+    if (!el) return;
+    if (!isDriver() || !window.VZC || !window.VZC.rpc) {
+      el.innerHTML = '<p class="muted">Уведомления в Telegram — для водителей с визиткой в облаке.</p>';
+      return;
+    }
+    el.innerHTML = '<p class="muted">Загружаю…</p>';
+    window.VZC.rpc('vz_tg_status', { p_key: window.VZC.key() }).then(function (st) {
+      if (!st || !st.linked) {
+        return window.VZC.rpc('vz_tg_link', { p_key: window.VZC.key() }).then(function (tok) {
+          el.innerHTML = '<p class="muted">Пока приложение закрыто, новые заказы вашего города придут в Telegram.</p>' +
+            (st && st.city ? '<p class="fine">Город визитки: «' + esc(st.city) + '».</p>' : '<p class="fine">Сначала укажите город выше, иначе общие заказы не придут.</p>') +
+            '<a class="btn btn-tg btn-block" href="https://t.me/' + esc((st && st.bot) || 'vezu_orders_bot') + '?start=' + esc(tok) + '" target="_blank" rel="noopener" data-set-tggo><svg><use href="#i-tg"></use></svg>Подключить Telegram</a>' +
+            '<p class="fine">Откроется бот — нажмите «Старт». Ссылка действует 30 минут.</p>';
+        });
+      }
+      el.innerHTML = '<p class="tg-ok">✅ Подключено — заказы приходят в @' + esc(st.bot) + '</p>' +
+        (st.enabled ? '<p class="fine">Уведомления включены.</p>' : '<p class="fine">Бот подключён, но уведомления выключены. Включить можно в кабинете.</p>') +
+        '<a class="btn btn-glass btn-block" href="new.html">Открыть кабинет водителя</a>';
+    }, function () { el.innerHTML = '<p class="muted">Не удалось загрузить статус Telegram. Сохраните визитку в облаке.</p>'; });
+  }
+  function openSettings(section) {
+    if (settingsSheet) { settingsSheet.close(); settingsSheet = null; }
+    var city = knownCity();
+    var langNow = (window.VEZU && VEZU.lang && VEZU.lang()) || savedLang();
+    var html = '' +
+      '<section class="set-sec" id="set-city">' +
+        '<h3>Город</h3>' +
+        '<p class="muted">' + (isDriver() ? 'Лента показывает заказы этого города. Он же уйдёт в визитку.' : 'Заказ увидят водители этого города.') + '</p>' +
+        '<div class="fld city-f" data-city-pick data-city-full data-city-name="set_city">' +
+          '<div class="qchips city-chips" role="group" aria-label="Город"></div>' +
+          '<input type="hidden" name="set_city" value="">' +
+          '<label class="fld city-other" hidden><span>Название города</span><input class="inp" name="set_city_other" maxlength="40" placeholder="Например: Темиртау"></label>' +
+          '<button type="button" class="lnk city-gps" data-city-gps>Определить город по геопозиции</button>' +
+          '<p class="fine city-gps-msg" data-city-gps-msg hidden></p>' +
+        '</div>' +
+      '</section>' +
+      '<section class="set-sec" id="set-sound">' +
+        '<h3>Звук заказов</h3>' +
+        '<button type="button" class="feed-sound" id="setsnd" aria-pressed="false">🔔 Звук заказов: выкл</button>' +
+        '<p class="fine">Звук работает, пока приложение открыто. Если свернёте телефон — придёт уведомление в Telegram.</p>' +
+      '</section>' +
+      '<section class="set-sec" id="set-tg">' +
+        '<h3>Уведомления в Telegram</h3>' +
+        '<div data-set-tg></div>' +
+      '</section>' +
+      '<section class="set-sec" id="set-lang">' +
+        '<h3>Язык</h3>' +
+        '<div class="qchips" role="group" aria-label="Язык">' +
+          '<button type="button" class="qchip' + (langNow === 'ru' ? ' on' : '') + '" data-set-lang="ru" aria-pressed="' + (langNow === 'ru') + '">Русский</button>' +
+          '<button type="button" class="qchip' + (langNow === 'kk' ? ' on' : '') + '" data-set-lang="kk" aria-pressed="' + (langNow === 'kk') + '">Қазақша</button>' +
+        '</div>' +
+      '</section>' +
+      '<section class="set-sec" id="set-more">' +
+        '<h3>Ещё</h3>' +
+        '<a class="btn btn-glass btn-block" href="new.html"><svg><use href="#i-user"></use></svg>Кабинет водителя</a>' +
+        '<button type="button" class="btn btn-glass btn-block" data-install id="set-install"><svg><use href="#i-install"></use></svg>Установить на телефон</button>' +
+        '<a class="btn btn-glass btn-block" href="privacy.html">Политика конфиденциальности</a>' +
+      '</section>';
+    var sh = sheet('Настройки', html, 'sheet-settings');
+    settingsSheet = sh;
+    var pick = bindCityPicker(sh.el.querySelector('[data-city-pick]'), {
+      value: city,
+      onChange: function (v) { if (v) cityChanged(v); }
+    });
+    if (city && pick) pick.set(city, false);
+    paintSettingsSound();
+    fillSettingsTg(sh.el.querySelector('[data-set-tg]'));
+    var inst = sh.el.querySelector('#set-install');
+    if (inst) bindInstall(inst);
+    sh.el.addEventListener('click', function (e) {
+      if (e.target.closest('#setsnd')) { e.preventDefault(); toggleSoundFromSettings(); }
+      var lb = e.target.closest('[data-set-lang]');
+      if (lb) {
+        setLang(lb.dataset.setLang, true);
+        sh.el.querySelectorAll('[data-set-lang]').forEach(function (x) {
+          var on = x === lb; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on);
+        });
+      }
+    });
+    var prevClose = sh.close;
+    sh.close = function () {
+      settingsSheet = null;
+      prevClose();
+      if (location.hash === '#settings') {
+        var back = sh._back || (document.querySelector('main.app') ? '#order' : '');
+        if (back) location.hash = back;
+        else if (history.length > 1) history.back();
+      }
+    };
+    if (section === 'city') {
+      var el = sh.el.querySelector('#set-city');
+      if (el) setTimeout(function () { el.scrollIntoView({ block: 'start', behavior: 'smooth' }); }, 80);
+    }
+    return sh;
+  }
+  function openSettingsFrom(section, ev) {
+    if (ev && ev.preventDefault) ev.preventDefault();
+    var sh = openSettings(section);
+    if (sh && location.hash && location.hash !== '#settings') sh._back = location.hash;
+    return sh;
+  }
+  function initCityUi() {
+    ensureCityChip();
+    var go = function () { paintCityChip(); compactCityPickers(); };
+    if (isDriver()) loadDriverCity().then(go); else go();
+  }
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-open-settings]');
+    if (b) { e.preventDefault(); openSettingsFrom(b.getAttribute('data-open-settings') || '', e); return; }
+    var a = e.target.closest && e.target.closest('a[href$="#settings"], a[href="#settings"]');
+    if (a) { e.preventDefault(); openSettingsFrom('city', e); }
+  });
+  function bootCityUi() { setTimeout(initCityUi, 0); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bootCityUi);
+  else bootCityUi();
+
   var VEZU = window.VEZU = {
     SITE_PHONE: SITE_PHONE, SERVICES: SERVICES, CAPACITY: CAPACITY, EXTRAS: EXTRAS, PAYMENTS: PAYMENTS, THEMES: THEMES, DEMO: DEMO,
     VEHICLES: VEHICLES, vehicle: vehicle, vehicleImg: vehicleImg, TG_PHOTO: TG_PHOTO, localPhoto: localPhoto, photoSrc: photoSrc, resizePhoto: resizePhoto,
@@ -989,6 +1252,7 @@
     services: services, initials: initials, metaLine: metaLine, hoursText: hoursText, isOpen: isOpen, almatyHour: almatyHour, priceText: priceText, cardHero: cardHero, statusInfo: statusInfo, reviewsOn: reviewsOn, CONSENT: CONSENT, CARGO: CARGO, cargoLabel: cargoLabel, consentHtml: consentHtml, consentGate: consentGate, plural: plural, hhmm: hhmm, cardDetails: cardDetails, applyTheme: applyTheme,
     qrSvg: qrSvg, qrPng: qrPng, vcf: vcf, contactIntent: contactIntent, addContact: addContact, download: download, fileName: fileName,
     CITIES: CITIES, normCity: normCity, cityViewbox: cityViewbox, bindCityPicker: bindCityPicker, bindCityPickers: bindCityPickers,
+    knownCity: knownCity, rememberedCity: rememberedCity, cityChanged: cityChanged, openSettings: openSettings, paintCityChip: paintCityChip,
     toast: toast, copy: copy, share: share, bindOrderForm: bindOrderForm, bindInstall: bindInstall, cardManifest: cardManifest
   };
 })();

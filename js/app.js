@@ -33,17 +33,23 @@
 
   // ---------- вкладки ----------
   function show(t) {
+    var openSet = (t === 'settings');
+    if (openSet) t = (cur && tabs.indexOf(cur) >= 0) ? cur : (C.key() ? 'feed' : 'order');
     if (tabs.indexOf(t) < 0) t = 'order';
     cur = t;
     document.querySelectorAll('[data-tab]').forEach(function (s) { s.hidden = s.dataset.tab !== t; });
-    document.querySelectorAll('.bnav a').forEach(function (a) { a.classList.toggle('on', a.getAttribute('href') === '#' + t); a.setAttribute('aria-current', a.getAttribute('href') === '#' + t ? 'page' : 'false'); });
+    document.querySelectorAll('.bnav a').forEach(function (a) {
+      var on = openSet ? a.classList.contains('bn-set') : (a.getAttribute('href') === '#' + t);
+      a.classList.toggle('on', on); a.setAttribute('aria-current', on ? 'page' : 'false');
+    });
     if (t === 'favs') drawFavs();
     if (t === 'orders') loadOrders();
     if (t === 'feed') { ensureSoundUi(); loadFeed(); }
     if (t === 'order') drawTargets();
     clearInterval(timer);
     if (t === 'orders' || t === 'feed') timer = setInterval(function () { if (!document.hidden) (t === 'orders' ? loadOrders : loadFeed)(true); }, POLL);
-    window.scrollTo(0, 0);
+    if (!openSet) window.scrollTo(0, 0);
+    if (openSet && V.openSettings) V.openSettings();
   }
   window.addEventListener('hashchange', function () { show(location.hash.slice(1)); });
   document.addEventListener('visibilitychange', function () { if (!document.hidden) badges(); });
@@ -100,6 +106,7 @@
     var b = this; b.disabled = true; b.textContent = 'Отправляю…';
     if (!orderConsent()) return fail('Поставьте галочку согласия на обработку данных.');
     C.rpc('vz_order_create', { p_dev: dev(), p_order: o, p_slugs: slugs, p_consent: orderConsent() }).then(function () {
+      if (o.city && V.cityChanged) V.cityChanged(o.city);
       b.disabled = false; b.innerHTML = '<svg><use href="#i-feed"/></svg>Отправить водителям';
       ['what', 'cargo', 'from', 'to', 'note', 'price', 'at'].forEach(function (n) { var i = form.querySelector('[name=' + n + ']'); if (i) i.value = ''; });
       form.querySelectorAll('[data-cargo]').forEach(function (x) { x.classList.remove('on'); x.setAttribute('aria-pressed', 'false'); });
@@ -395,27 +402,38 @@
       hint.className = 'fine feed-sound-h';
       hint.textContent = 'Звук работает, пока приложение открыто. Если свернёте телефон — придёт уведомление в Telegram.';
       b.after(hint);
-      b.addEventListener('click', function () {
-        if (!soundOn || !soundUnlocked) {
-          soundOn = true;
-          C.ls(SND_K, true);
-          unlockSound();
-          paintSoundBtn();
-          playChime();
-        } else {
-          soundOn = false;
-          C.ls(SND_K, false);
-          soundUnlocked = false;
-          try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) {}
-          paintSoundBtn();
-        }
-      });
+      b.addEventListener('click', function () { toggleSound(); });
     }
     b.hidden = !C.key();
     var h2 = sec.querySelector('.feed-sound-h');
     if (h2) h2.hidden = !C.key();
     paintSoundBtn();
+    if (window.VEZU && VEZU.paintSettingsSound) {}
   }
+  function toggleSound() {
+    if (!soundOn || !soundUnlocked) {
+      soundOn = true;
+      C.ls(SND_K, true);
+      unlockSound();
+      paintSoundBtn();
+      playChime();
+    } else {
+      soundOn = false;
+      C.ls(SND_K, false);
+      soundUnlocked = false;
+      try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) {}
+      paintSoundBtn();
+    }
+    var sb = document.getElementById('setsnd');
+    if (sb) { sb.textContent = soundOn && soundUnlocked ? '🔔 Звук заказов: вкл' : (soundOn ? '🔔 Звук заказов: нажмите, чтобы включить' : '🔔 Звук заказов: выкл'); sb.setAttribute('aria-pressed', soundOn && soundUnlocked ? 'true' : 'false'); }
+  }
+  window.VEZU_SOUND = {
+    isOn: function () { return soundOn; },
+    unlocked: function () { return soundUnlocked; },
+    label: function () { return soundOn && soundUnlocked ? '🔔 Звук заказов: вкл' : (soundOn ? '🔔 Звук заказов: нажмите, чтобы включить' : '🔔 Звук заказов: выкл'); },
+    toggle: toggleSound,
+    paint: paintSoundBtn
+  };
   if (window.speechSynthesis) speechSynthesis.addEventListener('voiceschanged', function () {});
 
   // ---------- лента водителя ----------
@@ -427,7 +445,7 @@
   }
   function cityNeed() {
     var m = feedMeta; if (!m || !m.needs_city) return '';
-    return '<div class="empty glass city-need"><h2>Укажите свой город</h2><p class="muted">Лента показывает только заказы вашего города. Сейчас город в визитке не выбран — общие заказы скрыты. Личные заказы (когда клиент выбрал вас) будут видны.</p><a class="btn btn-grad" href="new.html">Выбрать город в кабинете</a></div>';
+    return '<div class="empty glass city-need"><h2>Укажите свой город</h2><p class="muted">Лента показывает только заказы вашего города. Сейчас город в визитке не выбран — общие заказы скрыты. Личные заказы (когда клиент выбрал вас) будут видны.</p><button type="button" class="btn btn-grad" data-open-settings="city">Выбрать город в настройках</button></div>';
   }
   function loadFeed(quiet) {
     var box = $('#feedl');

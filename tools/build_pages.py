@@ -93,6 +93,7 @@ BNAV='''<nav class="bnav" aria-label="Приложение ВЕЗУ">
   <button type="button" class="bn-share" data-share="app" aria-label="Поделиться VEZU с друзьями"><i><svg><use href="#i-share"/></svg></i><span>Поделиться</span></button>
   <a href="{p}#orders"><svg><use href="#i-list"/></svg><span>Мои заказы</span><em hidden>0</em></a>
   <a href="{p}#feed" class="drv"><svg><use href="#i-feed"/></svg><span>Лента</span><em hidden>0</em></a>
+  <a href="{p}#settings" class="bn-set"><svg><use href="#i-gear"/></svg><span>Настройки</span></a>
 </nav>
 <script>try{{if(localStorage.getItem('vezu-key'))document.body.classList.add('is-driver')}}catch(e){{}}</script>
 '''
@@ -594,7 +595,8 @@ app=head('Заказ перевозки — ВЕЗУ','Опишите груз �
     <div id="feedl" class="ord-list" aria-live="polite"></div>
   </section>
 </main>
-{BN('')}<p class="wrap narrow fine legal-foot"><a href="privacy.html">Политика конфиденциальности</a></p>
+{BN('')}<p class="wrap narrow set-foot"><button type="button" class="btn btn-glass btn-block" data-open-settings>⚙️ Настройки</button></p>
+<p class="wrap narrow fine legal-foot"><a href="privacy.html">Политика конфиденциальности</a></p>
 {SCRIPTS('js/common.js','js/calc.js','js/config.js','js/cloud.js','js/favs.js','js/cab.js','js/share.js','js/app.js')}</body>
 </html>
 '''
